@@ -552,7 +552,7 @@ export function Eip8056Portal({ defaultContractAddress = '0xE43fA578C392F5c728d5
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-3">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-sm font-bold">1</span>
-                    Detect EIP-8056 Support (via ERC-165)
+                    Detect EIP-8056 Support
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -596,23 +596,15 @@ export function Eip8056Portal({ defaultContractAddress = '0xE43fA578C392F5c728d5
                             Current multiplier: <strong>{eip8056Detection.multiplier}x</strong>
                           </div>
                         )}
-                        <div className="text-xs text-slate-500 mt-1">
-                          Method: {eip8056Detection.method} (uiMultiplier())
-                        </div>
                       </div>
                     )}
-
-                    <div className="mt-3 text-xs text-slate-500">
-                      <strong>Why direct call?</strong> Most ERC20 tokens don't implement ERC-165.
-                      Direct function call is more reliable and efficient.
-                    </div>
                   </div>
 
                   <div className="text-sm text-slate-600">
-                    <strong>Recommended:</strong> Directly try calling <code className="bg-slate-100 px-1 rounded">uiMultiplier()</code> to detect EIP-8056 support.
+                    Try calling <code className="bg-slate-100 px-1 rounded">uiMultiplier()</code> to detect EIP-8056 support.
                   </div>
                   <CodeBlock
-                    label="Direct Call Detection (Recommended)"
+                    label="Detection Code"
                     copyable
                     code={`// Detect EIP-8056 support by trying to call uiMultiplier()
 async function isEIP8056Token(tokenAddress) {
@@ -635,10 +627,6 @@ if (await isEIP8056Token(tokenAddress)) {
   const balance = await token.balanceOf(user);
 }`}
                   />
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                    <strong>Why not ERC-165?</strong> Most ERC20 tokens (USDT, CAKE, WBNB, etc.)
-                    don't implement ERC-165. Using direct function call avoids unnecessary errors.
-                  </div>
                 </CardContent>
               </Card>
 
