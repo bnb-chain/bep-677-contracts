@@ -1,312 +1,371 @@
-import { useState, useEffect, useCallback } from 'react'
-import { ethers } from 'ethers'
-import { ERC8056_ABI } from './abi'
-
-declare global {
-  interface Window {
-    ethereum?: ethers.Eip1193Provider
-  }
-}
+import { useState, useEffect, useCallback } from "react";
+import { useAccount, usePublicClient, useWalletClient } from "wagmi";
+import { formatUnits, parseUnits, isAddress, type Address } from "viem";
+import { ERC8056_ABI } from "./abi";
+import { displayBalance } from "./tokenUtils";
 
 interface PendingMultiplier {
-  value: string
-  effectiveAt: number
-  remainingSeconds: number
+  value: string;
+  effectiveAt: number;
+  remainingSeconds: number;
 }
 
 interface TokenData {
-  name: string
-  symbol: string
-  rawBalance: string
-  uiBalance: string
-  multiplier: string
-  pendingMultiplier: PendingMultiplier | null
-}
-
-interface EIP8056Detection {
-  supported: boolean
-  multiplier: string | null
-  method: 'direct-call'
-  checkedAt: number
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  totalSupply: string;
+  owner: string | null;
+  rawBalance: string;
+  uiBalance: string;
+  multiplier: string;
+  pendingMultiplier: PendingMultiplier | null;
+  isEIP8056: boolean;
 }
 
 interface UseScaledTokenReturn {
-  account: string | null
-  network: string
-  tokenData: TokenData
-  isLoading: boolean
-  error: string | null
-  eip8056Detection: EIP8056Detection | null
-  connectWallet: () => Promise<void>
-  disconnectWallet: () => void
-  refreshData: () => Promise<void>
-  updateMultiplier: (newMultiplier: string) => Promise<void>
-  transfer: (to: string, amount: string) => Promise<void>
-  checkEIP8056Support: () => Promise<EIP8056Detection | null>
+  address: Address | undefined;
+  isConnected: boolean;
+  tokenData: TokenData | null;
+  isLoading: boolean;
+  error: string | null;
+  refreshData: () => Promise<void>;
+  updateMultiplier: (
+    newMultiplier: string,
+    effectiveAt?: number
+  ) => Promise<string>;
+  transfer: (to: string, uiAmount: string) => Promise<string>;
 }
 
 export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
-  const [account, setAccount] = useState<string | null>(null)
-  const [network, setNetwork] = useState<string>('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [eip8056Detection, setEip8056Detection] = useState<EIP8056Detection | null>(null)
-  const [tokenData, setTokenData] = useState<TokenData>({
-    name: '',
-    symbol: '',
-    rawBalance: '0',
-    uiBalance: '0',
-    multiplier: '1.0',
-    pendingMultiplier: null,
-  })
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
 
-  const connectWallet = async () => {
-    if (!window.ethereum) {
-      setError('Please install MetaMask!')
-      return
-    }
-
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const accounts = await provider.send('eth_requestAccounts', [])
-      setAccount(accounts[0])
-      const net = await provider.getNetwork()
-      setNetwork(Number(net.chainId) === 97 ? 'BSC Testnet' : `Chain ${net.chainId}`)
-      setError(null)
-    } catch (e) {
-      console.error(e)
-      setError('Failed to connect wallet')
-    }
-  }
-
-  const disconnectWallet = () => {
-    setAccount(null)
-    setTokenData({
-      name: '',
-      symbol: '',
-      rawBalance: '0',
-      uiBalance: '0',
-      multiplier: '1.0',
-      pendingMultiplier: null,
-    })
-  }
+  const [tokenData, setTokenData] = useState<TokenData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
-    if (!account || !contractAddress || !ethers.isAddress(contractAddress)) return
+    if (!contractAddress || !isAddress(contractAddress)) {
+      setTokenData(null);
+      if (contractAddress && !isAddress(contractAddress)) {
+        setError("Invalid token address format");
+      }
+      return;
+    }
 
-    setIsLoading(true)
-    setError(null)
+    if (!publicClient) {
+      setError("Network not connected. Please connect to a supported network.");
+      setTokenData(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum!)
+      const address = contractAddress as Address;
 
-      const code = await provider.getCode(contractAddress)
-      if (code === '0x') {
-        setError('No contract found at this address. Please check the address.')
-        setIsLoading(false)
-        return
-      }
-
-      const contract = new ethers.Contract(contractAddress, ERC8056_ABI, provider)
-
-      let isEIP8056 = false
+      // Check if contract exists
+      let code: `0x${string}` | undefined;
       try {
-        await contract.uiMultiplier()
-        isEIP8056 = true
-      } catch {
-        setError('Contract does not support EIP-8056 (uiMultiplier not found)')
-        setIsLoading(false)
-        return
+        code = await publicClient.getBytecode({ address });
+      } catch (err) {
+        console.error("Error fetching bytecode:", err);
+        setError(
+          `Failed to fetch contract: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`
+        );
+        setTokenData(null);
+        setIsLoading(false);
+        return;
       }
 
-      if (!isEIP8056) return
+      if (!code || code === "0x") {
+        setError(
+          `No contract found at address ${contractAddress}. Please check the address and network.`
+        );
+        setTokenData(null);
+        setIsLoading(false);
+        return;
+      }
 
-      const [name, symbol, mult, raw, ui, nextMult, nextMultEffectiveAt] = await Promise.all([
-        contract.name(),
-        contract.symbol(),
-        contract.uiMultiplier(),
-        contract.balanceOf(account),
-        contract.balanceOfUI(account),
-        contract._nextUiMultiplier(),
-        contract._nextUiMultiplierEffectiveAt(),
-      ])
+      // Get balance information using displayBalance utility (if wallet connected)
+      let balanceInfo: {
+        display: string;
+        raw: string;
+        multiplier: string;
+        isEIP8056: boolean;
+      } | null = null;
+      let isEIP8056 = false;
+      let multiplier = "1.0";
+      let uiBalance = "0";
+      let pendingMultiplier: PendingMultiplier | null = null;
 
-      const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
-      const effectiveAtBigInt = BigInt(nextMultEffectiveAt.toString())
-      const maxUint256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+      // Use displayBalance if wallet is connected
+      if (address && isConnected) {
+        try {
+          balanceInfo = await displayBalance(address, address, publicClient);
+          isEIP8056 = balanceInfo.isEIP8056;
+          multiplier = balanceInfo.multiplier;
+          uiBalance = balanceInfo.display;
+        } catch {
+          // Fallback to manual detection if displayBalance fails
+        }
+      }
 
-      // Has pending update if: effectiveAt is in the future AND not the max value (initial state)
-      const hasPendingUpdate = effectiveAtBigInt > currentTimestamp && effectiveAtBigInt < maxUint256
+      // If displayBalance wasn't used, detect EIP-8056 support manually
+      if (!balanceInfo) {
+        try {
+          const mult = await publicClient.readContract({
+            address,
+            abi: ERC8056_ABI,
+            functionName: "uiMultiplier",
+          });
+          isEIP8056 = true;
+          multiplier = formatUnits(mult as bigint, 18);
+        } catch {
+          // Not EIP-8056, will use standard ERC20
+        }
+      }
 
-      let pendingMultiplier: PendingMultiplier | null = null
-      if (hasPendingUpdate) {
-        const remainingSeconds = Number(effectiveAtBigInt - currentTimestamp)
-        pendingMultiplier = {
-          value: ethers.formatUnits(nextMult, 18),
-          effectiveAt: Number(effectiveAtBigInt),
-          remainingSeconds,
+      // Get standard ERC20 data and owner
+      const [name, symbol, decimals, totalSupply, owner, rawBalance] =
+        await Promise.all([
+          publicClient
+            .readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "name",
+            })
+            .catch(() => "Unknown"),
+          publicClient
+            .readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "symbol",
+            })
+            .catch(() => "UNKNOWN"),
+          publicClient
+            .readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "decimals",
+            })
+            .catch(() => 18n),
+          publicClient
+            .readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "totalSupply",
+            })
+            .catch(() => 0n),
+          publicClient
+            .readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "owner",
+            })
+            .catch(() => null),
+          address && isConnected
+            ? publicClient
+                .readContract({
+                  address,
+                  abi: ERC8056_ABI,
+                  functionName: "balanceOf",
+                  args: [address],
+                })
+                .catch(() => 0n)
+            : Promise.resolve(0n),
+        ]);
+
+      // Get EIP-8056 specific data if supported
+      if (isEIP8056) {
+        // Check for pending multiplier (doesn't require wallet connection)
+        try {
+          const [nextMult, nextMultEffectiveAt] = await Promise.all([
+            publicClient.readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "_nextUiMultiplier",
+            }),
+            publicClient.readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "_nextUiMultiplierEffectiveAt",
+            }),
+          ]);
+
+          const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
+          const effectiveAtBigInt = nextMultEffectiveAt as bigint;
+          const maxUint256 = BigInt(
+            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          );
+
+          if (
+            effectiveAtBigInt > currentTimestamp &&
+            effectiveAtBigInt < maxUint256
+          ) {
+            const remainingSeconds = Number(
+              effectiveAtBigInt - currentTimestamp
+            );
+            pendingMultiplier = {
+              value: formatUnits(nextMult as bigint, 18),
+              effectiveAt: Number(effectiveAtBigInt),
+              remainingSeconds,
+            };
+          }
+        } catch {
+          // Pending multiplier not available
+        }
+
+        // UI balance already fetched via displayBalance if connected
+        // If not connected or displayBalance wasn't used, use raw balance
+        if (!balanceInfo && address && isConnected) {
+          try {
+            const uiBal = await publicClient.readContract({
+              address,
+              abi: ERC8056_ABI,
+              functionName: "balanceOfUI",
+              args: [address],
+            });
+            uiBalance = formatUnits(uiBal as bigint, Number(decimals));
+          } catch {
+            uiBalance = formatUnits(rawBalance as bigint, Number(decimals));
+          }
+        } else if (!balanceInfo) {
+          uiBalance = formatUnits(rawBalance as bigint, Number(decimals));
+        }
+      } else {
+        // Not EIP-8056, use raw balance as UI balance
+        if (!balanceInfo) {
+          uiBalance = formatUnits(rawBalance as bigint, Number(decimals));
         }
       }
 
       setTokenData({
-        name,
-        symbol,
-        rawBalance: ethers.formatUnits(raw, 18),
-        uiBalance: ethers.formatUnits(ui, 18),
-        multiplier: ethers.formatUnits(mult, 18),
-        pendingMultiplier,
-      })
-      setError(null)
-    } catch (err: unknown) {
-      console.error('Error fetching data:', err)
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      if (message.includes('BAD_DATA') || message.includes('invalid length')) {
-        setError('Invalid contract response. This may not be an EIP-8056 compatible token.')
-      } else if (message.includes('network')) {
-        setError('Network error. Please check your connection and try again.')
-      } else {
-        setError(`Failed to fetch contract data: ${message.slice(0, 100)}`)
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [account, contractAddress])
-
-  const updateMultiplier = async (newMultiplier: string) => {
-    if (!account || !contractAddress) return
-
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum!)
-      const signer = await provider.getSigner()
-      const contract = new ethers.Contract(contractAddress, ERC8056_ABI, signer)
-
-      const val = ethers.parseUnits(newMultiplier, 18)
-      const currentTimestamp = Math.floor(Date.now() / 1000)
-      const effectiveTime = currentTimestamp + 30
-
-      const tx = await contract.setUIMultiplier(val, effectiveTime)
-      alert(`✅ Transaction sent!\n\nHash: ${tx.hash}\n\nNew multiplier will be effective in 30 seconds.`)
-      await tx.wait()
-      await refreshData()
-    } catch (err: unknown) {
-      console.error(err)
-      let message = 'Unknown error'
-      if (err instanceof Error) {
-        if (err.message.includes('user rejected')) {
-          message = 'Transaction rejected by user'
-        } else if (err.message.includes('out-of-bounds') || err.message.includes('INVALID_ARGUMENT')) {
-          message = 'Invalid value: multiplier must be a positive number'
-        } else if (err.message.includes('Multiplier must be positive')) {
-          message = 'Multiplier must be positive'
-        } else if (err.message.includes('execution reverted')) {
-          // Extract revert reason
-          const match = err.message.match(/reason="([^"]+)"/) || err.message.match(/reverted: ([^"]+)/)
-          message = match ? match[1] : 'Transaction reverted'
-        } else {
-          message = err.message.slice(0, 200)
-        }
-      }
-      alert(`❌ Error\n\n${message}`)
-    }
-  }
-
-  const transfer = async (to: string, amount: string) => {
-    if (!account || !contractAddress) return
-
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum!)
-      const signer = await provider.getSigner()
-      const contract = new ethers.Contract(contractAddress, ERC8056_ABI, signer)
-      const tx = await contract.transfer(to, amount)
-      alert(`✅ Transfer sent!\n\nHash: ${tx.hash}`)
-      await tx.wait()
-      await refreshData()
-    } catch (err: unknown) {
-      console.error(err)
-      let message = 'Unknown error'
-      if (err instanceof Error) {
-        if (err.message.includes('user rejected')) {
-          message = 'Transaction rejected by user'
-        } else if (err.message.includes('execution reverted')) {
-          const match = err.message.match(/reason="([^"]+)"/) || err.message.match(/reverted: ([^"]+)/)
-          message = match ? match[1] : 'Transaction reverted'
-        } else {
-          message = err.message.slice(0, 200)
-        }
-      }
-      alert(`❌ Transfer Error\n\n${message}`)
-    }
-  }
-
-  const checkEIP8056Support = async (): Promise<EIP8056Detection | null> => {
-    if (!contractAddress || !ethers.isAddress(contractAddress)) {
-      setError('Please enter a valid contract address')
-      return null
-    }
-
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum!)
-
-      const code = await provider.getCode(contractAddress)
-      if (code === '0x') {
-        setError('No contract found at this address')
-        return null
-      }
-
-      // Direct call detection: try calling uiMultiplier()
-      const contract = new ethers.Contract(
-        contractAddress,
-        ["function uiMultiplier() view returns (uint256)"],
-        provider
-      )
-
-      let supported = false
-      let multiplier: string | null = null
-
-      try {
-        const mult = await contract.uiMultiplier()
-        supported = true
-        multiplier = ethers.formatUnits(mult, 18)
-      } catch {
-        supported = false
-      }
-
-      const detection: EIP8056Detection = {
-        supported,
+        contractAddress: contractAddress,
+        name: name as string,
+        symbol: symbol as string,
+        decimals: Number(decimals),
+        totalSupply: formatUnits(totalSupply as bigint, Number(decimals)),
+        owner: owner ? (owner as Address) : null,
+        rawBalance: balanceInfo
+          ? balanceInfo.raw
+          : formatUnits(rawBalance as bigint, Number(decimals)),
+        uiBalance,
         multiplier,
-        method: 'direct-call',
-        checkedAt: Date.now()
+        pendingMultiplier,
+        isEIP8056,
+      });
+      setError(null);
+    } catch (err: unknown) {
+      console.error("Error fetching data:", err);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(`Failed to fetch contract data: ${message.slice(0, 100)}`);
+      setTokenData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [contractAddress, publicClient, address, isConnected]);
+
+  const updateMultiplier = async (
+    newMultiplier: string,
+    effectiveAt?: number
+  ) => {
+    if (!walletClient || !contractAddress || !isAddress(contractAddress)) {
+      throw new Error("Wallet not connected or invalid contract address");
+    }
+
+    try {
+      const address = contractAddress as Address;
+      const multiplierValue = parseUnits(newMultiplier, 18);
+      const effectiveTimestamp =
+        effectiveAt || Math.floor(Date.now() / 1000) + 30;
+
+      const hash = await walletClient.writeContract({
+        address,
+        abi: ERC8056_ABI,
+        functionName: "setUIMultiplier",
+        args: [multiplierValue, BigInt(effectiveTimestamp)],
+      });
+
+      await publicClient?.waitForTransactionReceipt({ hash });
+      await refreshData();
+      return hash;
+    } catch (err: unknown) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      throw new Error(`Failed to update multiplier: ${message}`);
+    }
+  };
+
+  const transfer = async (to: string, uiAmount: string) => {
+    if (
+      !walletClient ||
+      !contractAddress ||
+      !isAddress(contractAddress) ||
+      !tokenData
+    ) {
+      throw new Error("Wallet not connected or invalid contract address");
+    }
+
+    if (!isAddress(to)) {
+      throw new Error("Invalid recipient address");
+    }
+
+    try {
+      const address = contractAddress as Address;
+      const toAddress = to as Address;
+
+      // Convert UI amount to raw amount
+      let rawAmount: bigint;
+      if (tokenData.isEIP8056) {
+        const uiAmountWei = parseUnits(uiAmount, tokenData.decimals);
+        rawAmount = (await publicClient!.readContract({
+          address,
+          abi: ERC8056_ABI,
+          functionName: "fromUIAmount",
+          args: [uiAmountWei],
+        })) as bigint;
+      } else {
+        rawAmount = parseUnits(uiAmount, tokenData.decimals);
       }
 
-      setEip8056Detection(detection)
-      setError(null)
-      return detection
+      const hash = await walletClient.writeContract({
+        address,
+        abi: ERC8056_ABI,
+        functionName: "transfer",
+        args: [toAddress, rawAmount],
+      });
+
+      await publicClient?.waitForTransactionReceipt({ hash });
+      await refreshData();
+      return hash;
     } catch (err: unknown) {
-      console.error('Error checking EIP-8056 support:', err)
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Failed to check: ${message}`)
-      return null
+      console.error(err);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      throw new Error(`Transfer failed: ${message}`);
     }
-  }
+  };
 
   useEffect(() => {
-    if (account && contractAddress) {
-      refreshData()
+    if (contractAddress && isAddress(contractAddress)) {
+      refreshData();
     }
-  }, [account, contractAddress, refreshData])
+  }, [contractAddress, refreshData]);
 
   return {
-    account,
-    network,
+    address,
+    isConnected,
     tokenData,
     isLoading,
     error,
-    eip8056Detection,
-    connectWallet,
-    disconnectWallet,
     refreshData,
     updateMultiplier,
     transfer,
-    checkEIP8056Support,
-  }
+  };
 }

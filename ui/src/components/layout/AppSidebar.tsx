@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -10,20 +10,20 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/sidebar'
-import { Beaker, Home, FlaskConical } from 'lucide-react'
+} from "@/components/ui/sidebar";
+import { Beaker, Home, FlaskConical } from "lucide-react";
 
 const demos = [
   {
-    title: 'EIP-8056',
-    url: '/eip-8056',
+    title: "EIP-8056",
+    url: "/eip-8056",
     icon: FlaskConical,
-    description: 'Scaled UI Amount',
+    description: "Scaled UI Amount",
   },
-]
+];
 
 export function AppSidebar() {
-  const location = useLocation()
+  const location = useLocation();
 
   return (
     <Sidebar>
@@ -38,7 +38,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === '/'}>
+              <SidebarMenuButton asChild isActive={location.pathname === "/"}>
                 <Link to="/">
                   <Home className="h-4 w-4" />
                   <span>Home</span>
@@ -74,5 +74,5 @@ export function AppSidebar() {
         BNB Chain POC Labs
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

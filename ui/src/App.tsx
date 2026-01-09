@@ -1,23 +1,82 @@
-import { Routes, Route } from 'react-router-dom'
-import { SidebarProvider } from '@/components/ui/sidebar'
-import { AppSidebar } from '@/components/layout/AppSidebar'
-import { Home } from '@/pages/Home'
-import { Eip8056Page } from '@/pages/Eip8056Page'
+import { Routes, Route, useLocation } from "react-router-dom";
+import { ConnectKitProvider } from "connectkit";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { NetworkSwitcher } from "@/components/NetworkSwitcher";
+import { ConnectKitButton } from "connectkit";
+import { BookOpen } from "lucide-react";
+import { Home } from "@/pages/Home";
+import { Eip8056Page } from "@/pages/Eip8056Page";
 
-function App() {
+function TopNavBar() {
+  const location = useLocation();
+  const isEip8056Page = location.pathname === "/eip-8056";
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <main className="flex-1 p-6">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/eip-8056" element={<Eip8056Page />} />
-          </Routes>
-        </main>
+    <header className="border-b border-slate-200 bg-white px-6 py-4">
+      <div
+        className={`flex items-center justify-between ${
+          isEip8056Page ? "max-w-7xl mx-auto w-full" : ""
+        }`}
+      >
+        {isEip8056Page && (
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                EIP-8056 Integration Guide
+              </h1>
+              <p className="text-sm text-slate-500">
+                Scaled UI Amount Extension
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-3 ml-auto">
+          <NetworkSwitcher />
+          <ConnectKitButton />
+        </div>
       </div>
-    </SidebarProvider>
-  )
+    </header>
+  );
 }
 
-export default App
+function App() {
+  const location = useLocation();
+  const isEip8056Page = location.pathname === "/eip-8056";
+
+  return (
+    <ConnectKitProvider>
+      {isEip8056Page ? (
+        <div className="min-h-screen w-full bg-background flex flex-col">
+          <TopNavBar />
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto w-full">
+              <Routes>
+                <Route path="/eip-8056" element={<Eip8056Page />} />
+              </Routes>
+            </div>
+          </main>
+        </div>
+      ) : (
+        <SidebarProvider>
+          <div className="flex min-h-screen w-full bg-background">
+            <AppSidebar />
+            <div className="flex-1 flex flex-col">
+              <TopNavBar />
+              <main className="flex-1 p-6">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                </Routes>
+              </main>
+            </div>
+          </div>
+        </SidebarProvider>
+      )}
+    </ConnectKitProvider>
+  );
+}
+
+export default App;

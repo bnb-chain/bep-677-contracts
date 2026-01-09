@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "./IERC8056.sol";
 
 /**
@@ -11,7 +12,7 @@ import "./IERC8056.sol";
  * @dev ERC20 token with EIP-8056 Scaled UI Amount extension.
  * Supports scheduled multiplier updates for stock splits and RWA adjustments.
  */
-contract ScaledUIToken is ERC20, Ownable, IERC8056 {
+contract ScaledUIToken is ERC20, Ownable, IERC8056, IERC165 {
     using Math for uint256;
 
     uint256 private constant MULTIPLIER_DECIMALS = 1e18;
@@ -26,7 +27,7 @@ contract ScaledUIToken is ERC20, Ownable, IERC8056 {
         uint256 initialSupply,
         address initialOwner
     ) ERC20(name, symbol) Ownable(initialOwner) {
-        _mint(initialOwner, initialSupply * 10**decimals());
+        _mint(initialOwner, initialSupply * 10 ** decimals());
         _nextUiMultiplierEffectiveAt = type(uint256).max;
     }
 
@@ -38,24 +39,36 @@ contract ScaledUIToken is ERC20, Ownable, IERC8056 {
     }
 
     /// @dev Converts raw token amount to UI display amount using mulDiv for overflow safety.
-    function toUIAmount(uint256 rawAmount) public view override returns (uint256) {
+    function toUIAmount(
+        uint256 rawAmount
+    ) public view override returns (uint256) {
         return rawAmount.mulDiv(uiMultiplier(), MULTIPLIER_DECIMALS);
     }
 
     /// @dev Converts UI display amount back to raw token amount.
-    function fromUIAmount(uint256 uiAmount) public view override returns (uint256) {
+    function fromUIAmount(
+        uint256 uiAmount
+    ) public view override returns (uint256) {
         return uiAmount.mulDiv(MULTIPLIER_DECIMALS, uiMultiplier());
     }
 
-    function balanceOfUI(address account) public view override returns (uint256) {
+    function balanceOfUI(
+        address account
+    ) public view override returns (uint256) {
         return toUIAmount(balanceOf(account));
     }
 
     /// @dev Schedules a new multiplier.
-    function setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp) public override onlyOwner {
+    function setUIMultiplier(
+        uint256 newMultiplier,
+        uint256 effectiveAtTimestamp
+    ) public override onlyOwner {
         require(newMultiplier > 0, "Multiplier must be positive");
         uint256 currentTime = block.timestamp;
-        require(effectiveAtTimestamp >= currentTime, "Effective time must be in the future");
+        require(
+            effectiveAtTimestamp >= currentTime,
+            "Effective time must be in the future"
+        );
 
         uint256 currentMult = uiMultiplier();
 
@@ -67,6 +80,21 @@ contract ScaledUIToken is ERC20, Ownable, IERC8056 {
         _nextUiMultiplier = newMultiplier;
         _nextUiMultiplierEffectiveAt = effectiveAtTimestamp;
 
-        emit UIMultiplierUpdated(currentMult, newMultiplier, currentTime, effectiveAtTimestamp);
+        emit UIMultiplierUpdated(
+            currentMult,
+            newMultiplier,
+            currentTime,
+            effectiveAtTimestamp
+        );
+    }
+
+    /// @dev See {IERC165-supportsInterface}
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IERC165).interfaceId ||
+            interfaceId == type(IERC20).interfaceId ||
+            interfaceId == type(IERC8056).interfaceId;
     }
 }
