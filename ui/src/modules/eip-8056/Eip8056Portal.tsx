@@ -457,7 +457,7 @@ export function Eip8056Portal() {
                     <Button
                       type="submit"
                       disabled={!tokenInput || !isAddress(tokenInput)}
-                      className="w-full bg-yellow-600 hover:bg-yellow-700"
+                      className="w-full bg-yellow-600 hover:bg-yellow-700 cursor-pointer"
                     >
                       <Search className="w-4 h-4 mr-2" />
                       View Token

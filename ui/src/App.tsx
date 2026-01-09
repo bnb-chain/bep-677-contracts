@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { ConnectKitProvider } from "connectkit";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -10,7 +10,12 @@ import { Eip8056Page } from "@/pages/Eip8056Page";
 
 function TopNavBar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isEip8056Page = location.pathname === "/eip-8056";
+
+  const handleIconClick = () => {
+    navigate("/eip-8056");
+  };
 
   return (
     <header className="border-b border-slate-200 bg-white px-6 py-4">
@@ -21,9 +26,13 @@ function TopNavBar() {
       >
         {isEip8056Page && (
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl">
+            <button
+              onClick={handleIconClick}
+              className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl hover:from-yellow-500 hover:to-yellow-700 transition-colors cursor-pointer"
+              aria-label="Go to EIP-8056 home"
+            >
               <BookOpen className="w-5 h-5 text-white" />
-            </div>
+            </button>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">
                 EIP-8056 Integration Guide
