@@ -66,12 +66,12 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
     setError(null);
 
     try {
-      const address = contractAddress as Address;
+      const tokenAddress = contractAddress as Address;
 
       // Check if contract exists
       let code: `0x${string}` | undefined;
       try {
-        code = await publicClient.getBytecode({ address });
+        code = await publicClient.getBytecode({ address: tokenAddress });
       } catch (err) {
         console.error("Error fetching bytecode:", err);
         setError(
@@ -108,7 +108,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
       // Use displayBalance if wallet is connected
       if (address && isConnected) {
         try {
-          balanceInfo = await displayBalance(address, address, publicClient);
+          balanceInfo = await displayBalance(tokenAddress, address, publicClient);
           isEIP8056 = balanceInfo.isEIP8056;
           multiplier = balanceInfo.multiplier;
           uiBalance = balanceInfo.display;
@@ -121,7 +121,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
       if (!balanceInfo) {
         try {
           const mult = await publicClient.readContract({
-            address,
+            address: tokenAddress,
             abi: ERC8056_ABI,
             functionName: "uiMultiplier",
           });
@@ -137,35 +137,35 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         await Promise.all([
           publicClient
             .readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "name",
             })
             .catch(() => "Unknown"),
           publicClient
             .readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "symbol",
             })
             .catch(() => "UNKNOWN"),
           publicClient
             .readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "decimals",
             })
             .catch(() => 18n),
           publicClient
             .readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "totalSupply",
             })
             .catch(() => 0n),
           publicClient
             .readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "owner",
             })
@@ -173,7 +173,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
           address && isConnected
             ? publicClient
                 .readContract({
-                  address,
+                  address: tokenAddress,
                   abi: ERC8056_ABI,
                   functionName: "balanceOf",
                   args: [address],
@@ -188,12 +188,12 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         try {
           const [nextMult, nextMultEffectiveAt] = await Promise.all([
             publicClient.readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "_nextUiMultiplier",
             }),
             publicClient.readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "_nextUiMultiplierEffectiveAt",
             }),
@@ -227,7 +227,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         if (!balanceInfo && address && isConnected) {
           try {
             const uiBal = await publicClient.readContract({
-              address,
+              address: tokenAddress,
               abi: ERC8056_ABI,
               functionName: "balanceOfUI",
               args: [address],
