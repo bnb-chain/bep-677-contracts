@@ -44,7 +44,7 @@ const DEFAULT_TOKEN_ADDRESS = "0x0E81b9CBfb3D3d4960106e81FE53E61cDaEea669";
 // Generate token icon with first letter
 const TokenIcon = ({ name }: { name: string }) => {
   const firstLetter = name.charAt(0).toUpperCase() || "T";
-  const bgColor = `bg-gradient-to-br from-indigo-500 to-purple-600`;
+  const bgColor = `bg-gradient-to-br from-yellow-400 to-yellow-600`;
 
   return (
     <div
@@ -260,10 +260,10 @@ export function Eip8056Portal() {
     return (
       <div className="space-y-8 pb-20">
         {/* EIP-8056 Introduction */}
-        <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
+        <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50 to-yellow-50">
           <CardHeader>
             <CardTitle className="text-2xl flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+              <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <span>EIP-8056: Scaled UI Amount Extension</span>
@@ -277,7 +277,7 @@ export function Eip8056Portal() {
             <div className="grid md:grid-cols-2 gap-4">
               <div className="p-4 bg-white rounded-lg border border-indigo-100">
                 <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-indigo-600" />
+                  <Zap className="w-5 h-5 text-yellow-600" />
                   Key Features
                 </h3>
                 <ul className="text-sm text-slate-600 space-y-1.5 list-disc list-inside">
@@ -293,7 +293,7 @@ export function Eip8056Portal() {
               </div>
               <div className="p-4 bg-white rounded-lg border border-purple-100">
                 <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                  <Info className="w-5 h-5 text-purple-600" />
+                  <Info className="w-5 h-5 text-yellow-600" />
                   Use Cases
                 </h3>
                 <ul className="text-sm text-slate-600 space-y-1.5 list-disc list-inside">
@@ -304,15 +304,15 @@ export function Eip8056Portal() {
                 </ul>
               </div>
             </div>
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-sm text-blue-800">
+            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="text-sm text-yellow-800">
                 <p className="font-medium mb-2">
                   📖 Learn more:{" "}
                   <a
                     href="https://eips.ethereum.org/EIPS/eip-8056"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1"
+                    className="text-yellow-600 hover:text-yellow-800 underline inline-flex items-center gap-1"
                   >
                     EIP-8056 Specification
                     <ExternalLink className="w-3 h-3" />
@@ -426,9 +426,9 @@ export function Eip8056Portal() {
             </div>
 
             {/* Option 2: Enter Token Address */}
-            <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+            <div className="p-5 bg-gradient-to-br from-yellow-50 to-yellow-50 rounded-lg border border-yellow-200">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex-shrink-0">
+                <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex-shrink-0">
                   <Search className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
@@ -457,7 +457,7 @@ export function Eip8056Portal() {
                     <Button
                       type="submit"
                       disabled={!tokenInput || !isAddress(tokenInput)}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full bg-yellow-600 hover:bg-yellow-700"
                     >
                       <Search className="w-4 h-4 mr-2" />
                       View Token
@@ -547,12 +547,12 @@ export function Eip8056Portal() {
                     </span>
                   </CardTitle>
                   {tokenData.isEIP8056 ? (
-                    <span className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1.5">
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-1.5">
                       <Zap className="w-4 h-4" />
                       EIP-8056
                     </span>
                   ) : (
-                    <span className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg text-sm font-semibold shadow-sm">
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg text-sm font-semibold shadow-sm">
                       BEP20
                     </span>
                   )}
@@ -608,7 +608,7 @@ export function Eip8056Portal() {
                           href={getBscScanUrl(contractAddress)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-mono text-xs text-indigo-600 hover:text-indigo-700 break-all hover:underline flex items-center gap-1"
+                          className="font-mono text-xs text-yellow-600 hover:text-yellow-700 break-all hover:underline flex items-center gap-1"
                         >
                           {contractAddress}
                           <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -624,7 +624,7 @@ export function Eip8056Portal() {
                           href={getBscScanUrl(tokenData.contractAddress)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-mono text-xs text-indigo-600 hover:text-indigo-700 break-all hover:underline flex items-center gap-1"
+                          className="font-mono text-xs text-yellow-600 hover:text-yellow-700 break-all hover:underline flex items-center gap-1"
                         >
                           {tokenData.contractAddress}
                           <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -641,7 +641,7 @@ export function Eip8056Portal() {
                             href={getBscScanUrl(tokenData.owner)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-xs text-indigo-600 hover:text-indigo-700 break-all hover:underline flex items-center gap-1"
+                            className="font-mono text-xs text-yellow-600 hover:text-yellow-700 break-all hover:underline flex items-center gap-1"
                           >
                             {tokenData.owner}
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -655,7 +655,7 @@ export function Eip8056Portal() {
                   {tokenData.isEIP8056 && (
                     <div className="pt-4 border-t border-slate-200">
                       <div className="flex items-center gap-2 mb-4">
-                        <Zap className="w-4 h-4 text-indigo-600" />
+                        <Zap className="w-4 h-4 text-yellow-600" />
                         <h3 className="text-sm font-semibold text-slate-700">
                           EIP-8056 Extended Fields
                         </h3>
@@ -666,7 +666,7 @@ export function Eip8056Portal() {
                             UI Multiplier
                           </div>
                           <div className="flex items-baseline gap-2">
-                            <span className="font-mono text-lg font-semibold text-indigo-700">
+                            <span className="font-mono text-lg font-semibold text-yellow-700">
                               {tokenData.multiplier}
                             </span>
                             <span className="text-xs text-slate-500">×</span>
@@ -731,7 +731,7 @@ export function Eip8056Portal() {
                 <Card className="border-slate-200">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Wallet className="w-5 h-5 text-blue-600" />
+                      <Wallet className="w-5 h-5 text-yellow-600" />
                       Case 1: Wallet Integration
                     </CardTitle>
                     <CardDescription>
@@ -740,14 +740,14 @@ export function Eip8056Portal() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="text-sm font-medium text-blue-700 mb-2">
+                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <div className="text-sm font-medium text-yellow-700 mb-2">
                         Key Difference from Standard ERC20:
                       </div>
-                      <ul className="text-sm text-blue-600 space-y-1 list-disc list-inside">
+                      <ul className="text-sm text-yellow-600 space-y-1 list-disc list-inside">
                         <li>
                           Check to see if the token supports using{" "}
-                          <code className="bg-blue-100 px-1 rounded">
+                          <code className="bg-yellow-100 px-1 rounded">
                             supportsInterface
                           </code>{" "}
                           with Interface ID:{" "}
@@ -758,14 +758,14 @@ export function Eip8056Portal() {
                         </li>
                         <li>
                           Get UI balance using{" "}
-                          <code className="bg-blue-100 px-1 rounded">
+                          <code className="bg-yellow-100 px-1 rounded">
                             balanceOfUI(address)
                           </code>{" "}
                           - this is the scaled amount users should see
                         </li>
                         <li>
                           Get raw balance using{" "}
-                          <code className="bg-blue-100 px-1 rounded">
+                          <code className="bg-yellow-100 px-1 rounded">
                             balanceOf(address)
                           </code>{" "}
                           - this is the actual on-chain balance
@@ -776,7 +776,7 @@ export function Eip8056Portal() {
                         </li>
                         <li>
                           Get the multiplier using{" "}
-                          <code className="bg-blue-100 px-1 rounded">
+                          <code className="bg-yellow-100 px-1 rounded">
                             uiMultiplier()
                           </code>
                         </li>
@@ -815,10 +815,10 @@ export function Eip8056Portal() {
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-indigo-600 mb-1">
+                          <div className="text-xs text-yellow-600 mb-1">
                             UI Multiplier
                           </div>
-                          <div className="font-mono text-lg font-semibold text-indigo-700">
+                          <div className="font-mono text-lg font-semibold text-yellow-700">
                             {tokenData.isEIP8056
                               ? Number(tokenData.multiplier).toLocaleString(
                                   undefined,
@@ -1054,7 +1054,7 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                 <Card className="border-slate-200">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-purple-600" />
+                      <Zap className="w-5 h-5 text-yellow-600" />
                       Case 3: Update UI Multiplier
                     </CardTitle>
                     <CardDescription>
@@ -1063,15 +1063,15 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                       <div className="flex items-start gap-2">
-                        <AlertCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-purple-800">
+                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-yellow-800">
                           <p className="font-medium mb-1">
                             Owner Only: Only the contract owner can update the
                             UI multiplier
                           </p>
-                          <p className="text-xs text-purple-700">
+                          <p className="text-xs text-yellow-700">
                             This function is restricted to the contract owner
                             address. If you're not the owner, you can view the
                             multiplier but cannot modify it.
@@ -1081,7 +1081,7 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       {/* Option 1: BSCScan */}
-                      <Card className="border-purple-200 bg-purple-50">
+                      <Card className="border-yellow-200 bg-yellow-50">
                         <CardHeader className="pb-3">
                           <CardTitle className="text-base flex items-center gap-2">
                             <ExternalLink className="w-4 h-4" />
@@ -1091,7 +1091,7 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                         <CardContent className="space-y-3">
                           <div className="text-sm text-slate-600">
                             Use BSCScan's Write Contract interface to call{" "}
-                            <code className="bg-purple-100 px-1 rounded">
+                            <code className="bg-yellow-100 px-1 rounded">
                               setUIMultiplier
                             </code>
                           </div>
@@ -1119,7 +1119,7 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                       </Card>
 
                       {/* Option 2: Direct */}
-                      <Card className="border-purple-200 bg-purple-50">
+                      <Card className="border-yellow-200 bg-yellow-50">
                         <CardHeader className="pb-3">
                           <CardTitle className="text-base flex items-center gap-2">
                             <Zap className="w-4 h-4" />
@@ -1152,7 +1152,7 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                           <Button
                             onClick={handleUpdateMultiplier}
                             disabled={!newMultiplier || !isConnected}
-                            className="w-full bg-purple-600 hover:bg-purple-700"
+                            className="w-full bg-yellow-600 hover:bg-yellow-700"
                           >
                             <Zap className="w-4 h-4 mr-2" />
                             Update Multiplier

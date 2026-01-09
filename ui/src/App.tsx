@@ -21,7 +21,7 @@ function TopNavBar() {
       >
         {isEip8056Page && (
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+            <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <div>
