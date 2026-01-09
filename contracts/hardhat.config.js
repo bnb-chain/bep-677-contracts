@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-verify");
 require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -20,7 +21,9 @@ module.exports = {
       url: "http://127.0.0.1:8545",
     },
     testnet: {
-      url: process.env.TESTNET_RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545",
+      url:
+        process.env.TESTNET_RPC_URL ||
+        "https://data-seed-prebsc-1-s1.binance.org:8545",
       chainId: 97,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
@@ -31,10 +34,7 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      bsc: process.env.BSCSCAN_API_KEY || "",
-      bscTestnet: process.env.BSCSCAN_API_KEY || "",
-    },
+    apiKey: process.env.BSCSCAN_API_KEY || "",
   },
   paths: {
     sources: "./scaled-ui-amount",
@@ -43,4 +43,3 @@ module.exports = {
     artifacts: "./artifacts",
   },
 };
-

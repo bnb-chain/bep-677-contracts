@@ -35,6 +35,8 @@ import {
 import { isAddress } from "viem";
 import { ERC8056_INTERFACE_ID } from "./interfaceId";
 
+const DEFAULT_TOKEN_ADDRESS = "0x0E81b9CBfb3D3d4960106e81FE53E61cDaEea669";
+
 // ============================================================================
 // Reusable Components
 // ============================================================================
@@ -244,9 +246,7 @@ export function Eip8056Portal() {
     return `${base}/address/${address}${suffix}`;
   };
 
-  const [tokenInput, setTokenInput] = useState(
-    "0x8cA31E177E6Ad32Fe0a5B1236A9206c0a0D1f5B5"
-  );
+  const [tokenInput, setTokenInput] = useState(DEFAULT_TOKEN_ADDRESS);
 
   const handleTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
