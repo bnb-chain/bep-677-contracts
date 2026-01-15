@@ -1,26 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "./IERC8056.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC8056Base} from "./ERC8056Base.sol";
 
 /**
- * @title ScaledUIToken
- * @dev ERC20 token with EIP-8056 Scaled UI Amount extension.
- * Supports scheduled multiplier updates for stock splits and RWA adjustments.
+ * @dev Example ERC20 token with EIP-8056 Scaled UI Amount extension.
+ *
+ * This is a minimal reference implementation using {Ownable} for access
+ * control. For production deployments, consider:
+ *
+ * - Override {_validateMultiplier} to add min/max threshold checks
+ * - Override {_beforeMultiplierUpdate} to protect against overwriting scheduled changes
+ * - Use a multisig or timelock contract as the owner
+ *
+ * Example with threshold protection:
+ * ```solidity
+ * function _validateMultiplier(uint256 newMultiplier) internal pure override {
+ *     require(newMultiplier >= 1e15 && newMultiplier <= 1e21, "Out of range");
+ * }
+ * ```
  */
-contract ScaledUIToken is ERC20, Ownable, IERC8056, IERC165 {
-    using Math for uint256;
-
-    uint256 private constant MULTIPLIER_DECIMALS = 1e18;
-
-    uint256 private _uiMultiplier = MULTIPLIER_DECIMALS;
-    uint256 public _nextUiMultiplier = MULTIPLIER_DECIMALS;
-    uint256 public _nextUiMultiplierEffectiveAt = 0;
-
+contract ScaledUIToken is ERC8056Base, Ownable {
+    /**
+     * @dev Initializes the token with a name, symbol, and initial supply.
+     *
+     * The entire initial supply is minted to `initialOwner`, who also
+     * becomes the contract owner with permission to update the multiplier.
+     *
+     * @param name Token name
+     * @param symbol Token symbol
+     * @param initialSupply Initial supply in whole tokens (before decimals)
+     * @param initialOwner Address to receive initial supply and ownership
+     */
     constructor(
         string memory name,
         string memory symbol,
@@ -28,73 +41,10 @@ contract ScaledUIToken is ERC20, Ownable, IERC8056, IERC165 {
         address initialOwner
     ) ERC20(name, symbol) Ownable(initialOwner) {
         _mint(initialOwner, initialSupply * 10 ** decimals());
-        _nextUiMultiplierEffectiveAt = type(uint256).max;
     }
 
-    function uiMultiplier() public view override returns (uint256) {
-        if (block.timestamp >= _nextUiMultiplierEffectiveAt) {
-            return _nextUiMultiplier;
-        }
-        return _uiMultiplier;
-    }
-
-    /// @dev Converts raw token amount to UI display amount using mulDiv for overflow safety.
-    function toUIAmount(
-        uint256 rawAmount
-    ) public view override returns (uint256) {
-        return rawAmount.mulDiv(uiMultiplier(), MULTIPLIER_DECIMALS);
-    }
-
-    /// @dev Converts UI display amount back to raw token amount.
-    function fromUIAmount(
-        uint256 uiAmount
-    ) public view override returns (uint256) {
-        return uiAmount.mulDiv(MULTIPLIER_DECIMALS, uiMultiplier());
-    }
-
-    function balanceOfUI(
-        address account
-    ) public view override returns (uint256) {
-        return toUIAmount(balanceOf(account));
-    }
-
-    /// @dev Schedules a new multiplier.
-    function setUIMultiplier(
-        uint256 newMultiplier,
-        uint256 effectiveAtTimestamp
-    ) public override onlyOwner {
-        require(newMultiplier > 0, "Multiplier must be positive");
-        uint256 currentTime = block.timestamp;
-        require(
-            effectiveAtTimestamp >= currentTime,
-            "Effective time must be in the future"
-        );
-
-        uint256 currentMult = uiMultiplier();
-
-        // Seal any pending change that has already become active
-        if (currentTime >= _nextUiMultiplierEffectiveAt) {
-            _uiMultiplier = _nextUiMultiplier;
-        }
-
-        _nextUiMultiplier = newMultiplier;
-        _nextUiMultiplierEffectiveAt = effectiveAtTimestamp;
-
-        emit UIMultiplierUpdated(
-            currentMult,
-            newMultiplier,
-            currentTime,
-            effectiveAtTimestamp
-        );
-    }
-
-    /// @dev See {IERC165-supportsInterface}
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IERC165).interfaceId ||
-            interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(IERC8056).interfaceId;
-    }
+    /**
+     * @dev Restricts multiplier updates to the contract owner.
+     */
+    function _authorizeMultiplierUpdate() internal override onlyOwner {}
 }
