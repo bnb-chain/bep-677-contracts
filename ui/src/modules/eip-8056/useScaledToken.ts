@@ -38,6 +38,28 @@ interface UseScaledTokenReturn {
   transfer: (to: string, uiAmount: string) => Promise<string>;
 }
 
+// Localhost chain ID
+const LOCALHOST_CHAIN_ID = 1337;
+
+// Helper to wait for network to be ready with retries
+async function waitForNetwork(
+  publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
+  maxRetries = 3,
+  delayMs = 500
+): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await publicClient.getChainId();
+      return true;
+    } catch {
+      if (i < maxRetries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  return false;
+}
+
 export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -62,11 +84,33 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
       return;
     }
 
+    // Get the actual chain ID from the publicClient (not from useChainId which may be out of sync)
+    const clientChainId = publicClient.chain?.id;
+
     setIsLoading(true);
     setError(null);
 
     try {
       const tokenAddress = contractAddress as Address;
+
+      // Wait for network to be ready with retries (silent during initialization)
+      const networkReady = await waitForNetwork(publicClient);
+      if (!networkReady) {
+        console.warn("Network not ready after retries, clientChainId:", clientChainId);
+        // Check if it's localhost network - provide more specific error message
+        if (clientChainId === LOCALHOST_CHAIN_ID) {
+          setError(
+            "Localhost network is not available. Please start local node (npx hardhat node) or switch to BSC Testnet."
+          );
+        } else {
+          setError(
+            "Network connection not ready. Please check your network connection and try again."
+          );
+        }
+        setTokenData(null);
+        setIsLoading(false);
+        return;
+      }
 
       // Check if contract exists
       let code: `0x${string}` | undefined;
@@ -352,11 +396,20 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
     }
   };
 
+  // Clear error when publicClient changes (network switch)
+  // This ensures stale errors from previous network don't persist
   useEffect(() => {
-    if (contractAddress && isAddress(contractAddress)) {
+    setError(null);
+    setTokenData(null);
+  }, [publicClient]);
+
+  useEffect(() => {
+    // Only fetch data when publicClient is ready and contractAddress is valid
+    // This prevents errors during wagmi initialization on page refresh
+    if (contractAddress && isAddress(contractAddress) && publicClient) {
       refreshData();
     }
-  }, [contractAddress, refreshData]);
+  }, [contractAddress, refreshData, publicClient]);
 
   return {
     address,
