@@ -25,8 +25,9 @@ const localhost = defineChain({
   },
 });
 
+// Put bscTestnet first as default to avoid localhost connection issues on refresh
 const chains = import.meta.env.DEV
-  ? ([localhost, bscTestnet, bsc] as const)
+  ? ([bscTestnet, localhost, bsc] as const)
   : ([bscTestnet, bsc] as const);
 
 const configOptions: Parameters<typeof getDefaultConfig>[0] = {

@@ -35,7 +35,7 @@ import {
 import { isAddress } from "viem";
 import { ERC8056_INTERFACE_ID } from "./interfaceId";
 
-const DEFAULT_TOKEN_ADDRESS = "0x0E81b9CBfb3D3d4960106e81FE53E61cDaEea669";
+const DEFAULT_TOKEN_ADDRESS = "0x9E7eD6e2299aAd157d4243C049DfD391f1742214";
 
 // ============================================================================
 // Reusable Components
@@ -1021,19 +1021,19 @@ async function transferTokens(
     ],
     signer
   )
-  
+
   // Step 1: Get token decimals
   const decimals = await token.decimals()
-  
+
   // Step 2: Convert UI amount to raw amount
   const uiAmountWei = parseUnits(uiAmount, decimals)
   const rawAmount = await token.fromUIAmount(uiAmountWei)
-  
+
   // Step 3: Execute transfer with raw amount
   // Always use raw amounts for ERC-20 operations
   const tx = await token.transfer(toAddress, rawAmount)
   await tx.wait()
-  
+
   return tx.hash
 }
 
@@ -1187,22 +1187,22 @@ async function setUIMultiplier(
     ],
     signer
   )
-  
+
   // Convert multiplier to wei (18 decimals)
   // Multiplier uses 18 decimal places: 1e18 = 1.0
   const multiplierWei = parseUnits(newMultiplier, 18)
-  
+
   // Validate: effectiveAtTimestamp must be in the future
   const currentTime = Math.floor(Date.now() / 1000)
   if (effectiveAtTimestamp <= currentTime) {
     throw new Error('Effective At must be in the future')
   }
-  
+
   // Execute transaction
   // This will emit UIMultiplierUpdated event
   const tx = await token.setUIMultiplier(multiplierWei, effectiveAtTimestamp)
   const receipt = await tx.wait()
-  
+
   return {
     txHash: receipt.hash,
     effectiveAt: effectiveAtTimestamp
