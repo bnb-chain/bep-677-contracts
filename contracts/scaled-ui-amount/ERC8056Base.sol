@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC8056} from "./IERC8056.sol";
+import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
 
 /**
  * @dev Abstract base contract for EIP-8056 Scaled UI Amount extension.
@@ -49,7 +50,7 @@ import {IERC8056} from "./IERC8056.sol";
  *    - The {_authorizeMultiplierUpdate} function MUST be overridden with proper access control
  *    - Consider using a multisig or timelock contract for production deployments
  */
-abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
+abstract contract ERC8056Base is ERC20, IERC8056, IERC8056Scheduled, IERC165 {
     using Math for uint256;
 
     /**
@@ -60,17 +61,6 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
     uint256 private _uiMultiplier = MULTIPLIER_DECIMALS;
     uint256 private _nextUiMultiplier = MULTIPLIER_DECIMALS;
     uint256 private _nextUiMultiplierEffectiveAt = type(uint256).max;
-
-    /**
-     * @dev Emitted when a pending multiplier change is overwritten before taking effect.
-     * @notice Extension: Not part of EIP-8056. May not exist in other implementations.
-     */
-    event UIMultiplierChangeOverwritten(
-        uint256 overwrittenMultiplier,
-        uint256 overwrittenEffectiveAt,
-        uint256 newMultiplier,
-        uint256 newEffectiveAt
-    );
 
     /**
      * @dev See {IERC8056-uiMultiplier}.
@@ -115,24 +105,19 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
     }
 
     /**
-     * @dev Returns the pending multiplier and its effective timestamp.
-     * @notice Extension: Not part of EIP-8056. May not exist in other implementations.
+     * @dev See {IERC8056Scheduled-pendingMultiplier}.
      *
      * Use {hasPendingMultiplier} to check if a change is actually pending.
-     *
-     * @return multiplier The scheduled next multiplier value
-     * @return effectiveAt The timestamp when the multiplier becomes active
      */
-    function pendingMultiplier() public view virtual returns (uint256 multiplier, uint256 effectiveAt) {
+    function pendingMultiplier() public view virtual override returns (uint256 multiplier, uint256 effectiveAt) {
         return (_nextUiMultiplier, _nextUiMultiplierEffectiveAt);
     }
 
     /**
-     * @dev Returns true if there is a pending multiplier change that hasn't taken effect yet.
-     * @notice Extension: Not part of EIP-8056. May not exist in other implementations.
+     * @dev See {IERC8056Scheduled-hasPendingMultiplier}.
      */
-    function hasPendingMultiplier() public view virtual returns (bool) {
-        return block.timestamp < _nextUiMultiplierEffectiveAt;
+    function hasPendingMultiplier() public view virtual override returns (bool) {
+        return block.timestamp < _nextUiMultiplierEffectiveAt && _nextUiMultiplierEffectiveAt != type(uint256).max;
     }
 
     /**
@@ -196,6 +181,12 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
      * Override this function to add custom logic, such as preventing
      * overwrites of pending changes.
      *
+     * SECURITY WARNING - REENTRANCY:
+     *
+     * This hook is called BEFORE state updates. If your override includes
+     * external calls, consider adding reentrancy protection (e.g., OpenZeppelin's
+     * ReentrancyGuard) to {setUIMultiplier} to prevent unexpected behavior.
+     *
      * SECURITY WARNING - PENDING CHANGE OVERWRITES:
      *
      * By default, this implementation allows overwriting scheduled multiplier changes.
@@ -230,9 +221,8 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
 
     /**
      * @dev Hook called when a pending multiplier change is overwritten.
-     * @notice Extension: Not part of EIP-8056. May not exist in other implementations.
      *
-     * Override to customize or disable the {UIMultiplierChangeOverwritten} event.
+     * Override to customize or disable the {IERC8056Scheduled-UIMultiplierChangeOverwritten} event.
      * For example, to disable the event entirely:
      * ```solidity
      * function _onMultiplierOverwrite(uint256, uint256, uint256, uint256) internal override {}
@@ -261,14 +251,14 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
      *
      * Requirements:
      *
-     * - `effectiveAtTimestamp` must be in the future (>= current block timestamp)
+     * - `effectiveAtTimestamp` must be in the future (> current block timestamp)
      * - `newMultiplier` must pass {_validateMultiplier} checks
      *
      * @param newMultiplier The new multiplier value (1e18 = 1.0x)
      * @param effectiveAtTimestamp When the new multiplier should take effect
      */
     function _setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp) internal virtual {
-        require(effectiveAtTimestamp >= block.timestamp, "ERC8056: effective time must be in future");
+        require(effectiveAtTimestamp > block.timestamp, "ERC8056: effective time must be in future");
 
         _validateMultiplier(newMultiplier);
         _beforeMultiplierUpdate(newMultiplier, effectiveAtTimestamp);
@@ -276,17 +266,16 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
         uint256 currentMult = uiMultiplier();
 
         // Check if we're overwriting a pending change that hasn't taken effect yet
-        if (block.timestamp < _nextUiMultiplierEffectiveAt) {
+        if (block.timestamp < _nextUiMultiplierEffectiveAt
+            && _nextUiMultiplierEffectiveAt != type(uint256).max) {
             _onMultiplierOverwrite(
                 _nextUiMultiplier,
                 _nextUiMultiplierEffectiveAt,
                 newMultiplier,
                 effectiveAtTimestamp
             );
-        }
-
-        // Seal any pending change that has already become active
-        if (block.timestamp >= _nextUiMultiplierEffectiveAt) {
+        } else if (block.timestamp >= _nextUiMultiplierEffectiveAt) {
+            // Seal any pending change that has already become active
             _uiMultiplier = _nextUiMultiplier;
         }
 
@@ -303,7 +292,7 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
      *
      * - Caller must be authorized (see {_authorizeMultiplierUpdate})
      * - `newMultiplier` must be valid (see {_validateMultiplier})
-     * - `effectiveAtTimestamp` must be >= current block timestamp
+     * - `effectiveAtTimestamp` must be > current block timestamp
      */
     function setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp) public virtual override {
         _authorizeMultiplierUpdate();
@@ -317,6 +306,7 @@ abstract contract ERC8056Base is ERC20, IERC8056, IERC165 {
         return
             interfaceId == type(IERC165).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(IERC8056).interfaceId;
+            interfaceId == type(IERC8056).interfaceId ||
+            interfaceId == type(IERC8056Scheduled).interfaceId;
     }
 }
