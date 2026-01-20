@@ -31,11 +31,16 @@ import {
   BookOpen,
   Rocket,
   Search,
+  Clock,
+  Calendar,
 } from "lucide-react";
 import { isAddress } from "viem";
-import { ERC8056_INTERFACE_ID } from "./interfaceId";
+import {
+  ERC8056_INTERFACE_ID,
+  ERC8056_SCHEDULED_INTERFACE_ID,
+} from "./interfaceId";
 
-const DEFAULT_TOKEN_ADDRESS = "0x9E7eD6e2299aAd157d4243C049DfD391f1742214";
+const DEFAULT_TOKEN_ADDRESS = "0x65BC7da1308Df144a2AD3dfAf8Df85A51Ddf18AA";
 
 // ============================================================================
 // Reusable Components
@@ -671,16 +676,6 @@ export function Eip8056Portal() {
                             </span>
                             <span className="text-xs text-slate-500">×</span>
                           </div>
-                          {tokenData.pendingMultiplier &&
-                            countdown !== null &&
-                            countdown > 0 && (
-                              <div className="mt-2 pt-2 border-t border-slate-200">
-                                <div className="text-xs text-amber-600">
-                                  Pending: {tokenData.pendingMultiplier.value}×
-                                  (in {countdown}s)
-                                </div>
-                              </div>
-                            )}
                         </div>
                         <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                           <div className="text-xs text-slate-500 mb-1.5">
@@ -710,6 +705,7 @@ export function Eip8056Portal() {
                           </div>
                         </div>
                       </div>
+
                     </div>
                   )}
 
@@ -1222,6 +1218,260 @@ console.log(\`Effective at: \${new Date(result.effectiveAt * 1000)}\`)`}
                     </ExpandableSection>
                   </CardContent>
                 </Card>
+
+                {/* Case 4: Scheduled Extension - Only show if token supports it */}
+                {tokenData.supportsScheduled && (
+                <Card className="border-slate-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-slate-600" />
+                      Case 4: Scheduled Extension (IERC8056Scheduled)
+                    </CardTitle>
+                    <CardDescription>
+                      How to detect and use the scheduled multiplier extension -
+                      NOT part of EIP-8056 standard
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Pending Multiplier Status */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="w-4 h-4 text-slate-500" />
+                        <h4 className="text-sm font-medium text-slate-700">
+                          Pending Multiplier
+                        </h4>
+                      </div>
+                      {tokenData.pendingMultiplier &&
+                      countdown !== null &&
+                      countdown > 0 ? (
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Pending Value
+                            </div>
+                            <div className="font-mono text-lg font-semibold text-yellow-700">
+                              {tokenData.pendingMultiplier.value}×
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Effective At
+                            </div>
+                            <div className="font-mono text-sm text-slate-700">
+                              {new Date(
+                                tokenData.pendingMultiplier.effectiveAt * 1000
+                              ).toLocaleString()}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Countdown
+                            </div>
+                            <div className="font-mono text-lg font-semibold text-amber-600">
+                              {countdown >= 3600
+                                ? `${Math.floor(countdown / 3600)}h ${Math.floor((countdown % 3600) / 60)}m`
+                                : countdown >= 60
+                                  ? `${Math.floor(countdown / 60)}m ${countdown % 60}s`
+                                  : `${countdown}s`}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-slate-500">
+                          No pending change
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-slate-700">
+                          <p className="font-medium mb-2">
+                            Extension Interface: IERC8056Scheduled
+                          </p>
+                          <p className="text-slate-600 mb-2">
+                            This is an <strong>extension</strong> to EIP-8056,
+                            not part of the core standard. It allows querying
+                            pending multiplier changes before they take effect.
+                          </p>
+                          <div className="mt-3 p-2 bg-white rounded border border-slate-200">
+                            <div className="text-xs font-mono">
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">
+                                  Interface ID:
+                                </span>
+                                <span className="text-slate-700">
+                                  {ERC8056_SCHEDULED_INTERFACE_ID}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm font-medium text-slate-700 mb-3">
+                        Extension Functions:
+                      </div>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-white rounded border border-slate-200">
+                          <code className="text-xs font-mono text-slate-700">
+                            pendingMultiplier() → (uint256 multiplier, uint256
+                            effectiveAt)
+                          </code>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Returns the scheduled multiplier and when it will
+                            take effect
+                          </p>
+                        </div>
+                        <div className="p-3 bg-white rounded border border-slate-200">
+                          <code className="text-xs font-mono text-slate-700">
+                            hasPendingMultiplier() → bool
+                          </code>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Returns true if there's a pending change that hasn't
+                            taken effect yet
+                          </p>
+                        </div>
+                        <div className="p-3 bg-white rounded border border-slate-200">
+                          <code className="text-xs font-mono text-slate-700">
+                            event UIMultiplierChangeOverwritten(...)
+                          </code>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Emitted when a pending change is overwritten before
+                            taking effect
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ExpandableSection
+                      title="View Integration Code"
+                      defaultExpanded={false}
+                    >
+                      <CodeBlock
+                        label="Scheduled Extension Integration"
+                        copyable
+                        language="typescript"
+                        code={`import { formatUnits, type Address, type PublicClient } from 'viem'
+
+// Interface IDs
+const ERC8056_INTERFACE_ID = '${ERC8056_INTERFACE_ID}'
+const ERC8056_SCHEDULED_INTERFACE_ID = '${ERC8056_SCHEDULED_INTERFACE_ID}'
+
+// ABI for scheduled extension
+const SCHEDULED_ABI = [
+  {
+    name: 'supportsInterface',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'interfaceId', type: 'bytes4' }],
+    outputs: [{ type: 'bool' }]
+  },
+  {
+    name: 'pendingMultiplier',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [
+      { name: 'multiplier', type: 'uint256' },
+      { name: 'effectiveAt', type: 'uint256' }
+    ]
+  },
+  {
+    name: 'hasPendingMultiplier',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bool' }]
+  }
+] as const
+
+/**
+ * Check if token supports the scheduled extension
+ */
+async function supportsScheduledExtension(
+  tokenAddress: Address,
+  publicClient: PublicClient
+): Promise<boolean> {
+  try {
+    const result = await publicClient.readContract({
+      address: tokenAddress,
+      abi: SCHEDULED_ABI,
+      functionName: 'supportsInterface',
+      args: [ERC8056_SCHEDULED_INTERFACE_ID as \`0x\${string}\`]
+    })
+    return result as boolean
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Get pending multiplier information (if extension is supported)
+ */
+async function getPendingMultiplier(
+  tokenAddress: Address,
+  publicClient: PublicClient
+): Promise<{
+  hasPending: boolean
+  pendingValue: string | null
+  effectiveAt: Date | null
+  remainingSeconds: number | null
+} | null> {
+  // First check if extension is supported
+  const supported = await supportsScheduledExtension(tokenAddress, publicClient)
+  if (!supported) return null
+
+  try {
+    const hasPending = await publicClient.readContract({
+      address: tokenAddress,
+      abi: SCHEDULED_ABI,
+      functionName: 'hasPendingMultiplier'
+    }) as boolean
+
+    if (!hasPending) {
+      return { hasPending: false, pendingValue: null, effectiveAt: null, remainingSeconds: null }
+    }
+
+    const [multiplier, effectiveAt] = await publicClient.readContract({
+      address: tokenAddress,
+      abi: SCHEDULED_ABI,
+      functionName: 'pendingMultiplier'
+    }) as [bigint, bigint]
+
+    const effectiveDate = new Date(Number(effectiveAt) * 1000)
+    const remaining = Number(effectiveAt) - Math.floor(Date.now() / 1000)
+
+    return {
+      hasPending: true,
+      pendingValue: formatUnits(multiplier, 18),
+      effectiveAt: effectiveDate,
+      remainingSeconds: remaining > 0 ? remaining : 0
+    }
+  } catch {
+    return null
+  }
+}
+
+// Usage example
+const pendingInfo = await getPendingMultiplier(tokenAddress, publicClient)
+
+if (pendingInfo === null) {
+  console.log('Token does not support scheduled extension')
+} else if (pendingInfo.hasPending) {
+  console.log(\`Pending multiplier: \${pendingInfo.pendingValue}x\`)
+  console.log(\`Effective at: \${pendingInfo.effectiveAt}\`)
+  console.log(\`Remaining: \${pendingInfo.remainingSeconds}s\`)
+} else {
+  console.log('No pending multiplier change')`}
+                      />
+                    </ExpandableSection>
+                  </CardContent>
+                </Card>
+                )}
               </div>
             )}
           </div>
