@@ -3,6 +3,7 @@ import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits, parseUnits, isAddress, type Address } from "viem";
 import { ERC8056_ABI } from "./abi";
 import { displayBalance } from "./tokenUtils";
+import { ERC8056_SCHEDULED_INTERFACE_ID } from "./interfaceId";
 
 interface PendingMultiplier {
   value: string;
@@ -22,6 +23,7 @@ interface TokenData {
   multiplier: string;
   pendingMultiplier: PendingMultiplier | null;
   isEIP8056: boolean;
+  supportsScheduled: boolean;
 }
 
 interface UseScaledTokenReturn {
@@ -145,6 +147,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         isEIP8056: boolean;
       } | null = null;
       let isEIP8056 = false;
+      let supportsScheduled = false;
       let multiplier = "1.0";
       let uiBalance = "0";
       let pendingMultiplier: PendingMultiplier | null = null;
@@ -173,6 +176,22 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
           multiplier = formatUnits(mult as bigint, 18);
         } catch {
           // Not EIP-8056, will use standard ERC20
+        }
+      }
+
+      // Check for IERC8056Scheduled extension support
+      if (isEIP8056) {
+        try {
+          const scheduledSupport = await publicClient.readContract({
+            address: tokenAddress,
+            abi: ERC8056_ABI,
+            functionName: "supportsInterface",
+            args: [ERC8056_SCHEDULED_INTERFACE_ID],
+          });
+          supportsScheduled = scheduledSupport as boolean;
+        } catch {
+          // supportsInterface not available or failed
+          supportsScheduled = false;
         }
       }
 
@@ -304,6 +323,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         multiplier,
         pendingMultiplier,
         isEIP8056,
+        supportsScheduled,
       });
       setError(null);
     } catch (err: unknown) {

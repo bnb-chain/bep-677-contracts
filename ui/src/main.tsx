@@ -37,8 +37,8 @@ const configOptions: Parameters<typeof getDefaultConfig>[0] = {
   appIcon: "https://example.com/icon.png",
   chains,
   transports: {
-    [bscTestnet.id]: http(),
-    [bsc.id]: http(),
+    [bscTestnet.id]: http("https://data-seed-prebsc-1-s2.binance.org:8545/"),
+    [bsc.id]: http("https://bsc-dataseed.binance.org"),
   },
   walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "",
   enableFamily: false, // Disable FamilyAccountsSdk

@@ -43,6 +43,35 @@ export function calculateERC8056InterfaceId(): `0x${string}` {
 }
 
 /**
+ * Calculate the interface ID for IERC8056Scheduled (Scheduled Multiplier Extension)
+ *
+ * This is an EXTENSION interface, NOT part of EIP-8056 standard.
+ * It provides functions to query pending multiplier changes.
+ *
+ * Functions included:
+ * - pendingMultiplier() returns (uint256, uint256)
+ * - hasPendingMultiplier() returns (bool)
+ *
+ * @returns The interface ID as a hex string (0x + 8 hex characters)
+ */
+export function calculateERC8056ScheduledInterfaceId(): `0x${string}` {
+  const selectors = [
+    toFunctionSelector(
+      "function pendingMultiplier() view returns (uint256 multiplier, uint256 effectiveAt)"
+    ),
+    toFunctionSelector("function hasPendingMultiplier() view returns (bool)"),
+  ];
+
+  let interfaceId = BigInt(0);
+  for (const selector of selectors) {
+    interfaceId = interfaceId ^ BigInt(selector);
+  }
+
+  const hexString = interfaceId.toString(16).padStart(8, "0");
+  return `0x${hexString}` as `0x${string}`;
+}
+
+/**
  * Pre-calculated interface ID for IERC8056
  * This value is constant and will never change once the interface is finalized.
  *
@@ -50,3 +79,12 @@ export function calculateERC8056InterfaceId(): `0x${string}` {
  */
 export const ERC8056_INTERFACE_ID: `0x${string}` =
   calculateERC8056InterfaceId();
+
+/**
+ * Pre-calculated interface ID for IERC8056Scheduled (Extension)
+ * This is NOT part of EIP-8056 standard, but an extension for scheduled multiplier changes.
+ *
+ * Value: 0xeb0093dd
+ */
+export const ERC8056_SCHEDULED_INTERFACE_ID: `0x${string}` =
+  calculateERC8056ScheduledInterfaceId();
