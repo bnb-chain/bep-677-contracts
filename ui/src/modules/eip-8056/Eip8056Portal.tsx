@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useChainId } from "wagmi";
+import { useChainId, usePublicClient } from "wagmi";
+import { type Address } from "viem";
 import { useScaledToken } from "./useScaledToken";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -15,6 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Wallet,
   RefreshCw,
   Terminal,
@@ -23,7 +29,6 @@ import {
   Check,
   Zap,
   AlertTriangle,
-  AlertCircle,
   Info,
   ExternalLink,
   ChevronDown,
@@ -32,7 +37,6 @@ import {
   Rocket,
   Search,
   Clock,
-  Calendar,
 } from "lucide-react";
 import { isAddress } from "viem";
 import {
@@ -165,7 +169,13 @@ export function Eip8056Portal() {
   const [effectiveAt, setEffectiveAt] = useState("");
   const [transferRecipient, setTransferRecipient] = useState("");
   const [transferUiAmount, setTransferUiAmount] = useState("");
-  const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Scheduled extension query states
+  const [hasPendingResult, setHasPendingResult] = useState<boolean | null>(null);
+  const [pendingResult, setPendingResult] = useState<{multiplier: string, effectiveAt: number} | null>(null);
+  const [queryLoading, setQueryLoading] = useState<'hasPending' | 'pending' | null>(null);
+
+  const publicClient = usePublicClient();
 
   const {
     address,
@@ -177,38 +187,6 @@ export function Eip8056Portal() {
     updateMultiplier,
     transfer,
   } = useScaledToken(contractAddress);
-
-  // Countdown timer for pending multiplier
-  useEffect(() => {
-    const pending = tokenData?.pendingMultiplier;
-
-    if (!pending) {
-      const timeout = setTimeout(() => setCountdown(null), 0);
-      return () => clearTimeout(timeout);
-    }
-
-    const effectiveAt = pending.effectiveAt;
-    const calcRemaining = () =>
-      Math.max(0, effectiveAt - Math.floor(Date.now() / 1000));
-
-    const initialTimeout = setTimeout(() => setCountdown(calcRemaining()), 0);
-
-    const timer = setInterval(() => {
-      const remaining = calcRemaining();
-      if (remaining <= 0) {
-        clearInterval(timer);
-        setCountdown(null);
-        refreshData();
-      } else {
-        setCountdown(remaining);
-      }
-    }, 1000);
-
-    return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(timer);
-    };
-  }, [tokenData?.pendingMultiplier, refreshData]);
 
   const handleUpdateMultiplier = async () => {
     if (!newMultiplier) return;
@@ -235,6 +213,83 @@ export function Eip8056Portal() {
       setTransferUiAmount("");
     } catch (err: any) {
       alert(`❌ Transfer failed: ${err.message}`);
+    }
+  };
+
+  // Query hasPendingMultiplier
+  const queryHasPending = async () => {
+    if (!publicClient || !contractAddress) return;
+    setQueryLoading('hasPending');
+    try {
+      const result = await publicClient.readContract({
+        address: contractAddress as Address,
+        abi: [{
+          name: 'hasPendingMultiplier',
+          type: 'function',
+          inputs: [],
+          outputs: [{ type: 'bool' }],
+          stateMutability: 'view'
+        }],
+        functionName: 'hasPendingMultiplier',
+      });
+      setHasPendingResult(result as boolean);
+    } catch (err) {
+      console.error('Failed to query hasPendingMultiplier:', err);
+      setHasPendingResult(null);
+    } finally {
+      setQueryLoading(null);
+    }
+  };
+
+  // Query pendingMultiplier (first checks hasPendingMultiplier)
+  const queryPendingMultiplier = async () => {
+    if (!publicClient || !contractAddress) return;
+    setQueryLoading('pending');
+    try {
+      // First check if there's a pending multiplier
+      const hasPending = await publicClient.readContract({
+        address: contractAddress as Address,
+        abi: [{
+          name: 'hasPendingMultiplier',
+          type: 'function',
+          inputs: [],
+          outputs: [{ type: 'bool' }],
+          stateMutability: 'view'
+        }],
+        functionName: 'hasPendingMultiplier',
+      }) as boolean;
+
+      if (!hasPending) {
+        // No pending multiplier, set result to indicate this
+        setPendingResult({ multiplier: '0', effectiveAt: 0 });
+        return;
+      }
+
+      // Has pending, get the details
+      const result = await publicClient.readContract({
+        address: contractAddress as Address,
+        abi: [{
+          name: 'pendingMultiplier',
+          type: 'function',
+          inputs: [],
+          outputs: [
+            { name: 'multiplier', type: 'uint256' },
+            { name: 'effectiveAt', type: 'uint256' }
+          ],
+          stateMutability: 'view'
+        }],
+        functionName: 'pendingMultiplier',
+      }) as [bigint, bigint];
+      const multiplierValue = Number(result[0]) / 1e18;
+      setPendingResult({
+        multiplier: multiplierValue.toString(),
+        effectiveAt: Number(result[1])
+      });
+    } catch (err) {
+      console.error('Failed to query pendingMultiplier:', err);
+      setPendingResult(null);
+    } finally {
+      setQueryLoading(null);
     }
   };
 
@@ -295,6 +350,17 @@ export function Eip8056Portal() {
                   <li>Owner-controlled multiplier updates</li>
                   <li>Backward compatible with standard ERC20</li>
                 </ul>
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <p className="text-xs font-medium text-slate-700 mb-1.5 flex items-center gap-1">
+                    🛡️ Audit-Driven Extensions:
+                  </p>
+                  <ul className="text-xs text-slate-500 space-y-1 list-disc list-inside">
+                    <li>Query pending multiplier changes before they take effect</li>
+                    <li>Track overwritten changes via events for audit trail</li>
+                    <li>Customizable multiplier bounds to prevent extreme values</li>
+                    <li>Optional protection against overwriting scheduled updates</li>
+                </ul>
+                </div>
               </div>
               <div className="p-4 bg-white rounded-lg border border-purple-100">
                 <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
@@ -311,7 +377,7 @@ export function Eip8056Portal() {
             </div>
             <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <div className="text-sm text-yellow-800">
-                <p className="font-medium mb-2">
+                <p className="font-medium">
                   📖 Learn more:{" "}
                   <a
                     href="https://eips.ethereum.org/EIPS/eip-8056"
@@ -351,78 +417,149 @@ export function Eip8056Portal() {
                     Option 1: Deploy Your Own Token
                   </h3>
                   <p className="text-sm text-slate-600 mb-4">
-                    If you don't have an existing EIP-8056 token contract, you
-                    can deploy one using the{" "}
-                    <code className="bg-emerald-100 px-1.5 py-0.5 rounded text-xs">
-                      ScaledUIToken
-                    </code>{" "}
-                    contract from{" "}
-                    <code className="bg-emerald-100 px-1.5 py-0.5 rounded text-xs">
-                      scaled-ui-amount/ERC8056Token
-                    </code>
+                    Inherit from{" "}
+                    <a
+                      href="https://github.com/bnb-chain/poc-labs/blob/main/contracts/scaled-ui-amount/ERC8056Base.sol"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 hover:text-emerald-700 underline inline-flex items-center gap-0.5"
+                    >
+                      ERC8056Base.sol
+                      <ExternalLink className="w-3 h-3" />
+                    </a>{" "}
+                    to create your own EIP-8056 compliant token with customizable hooks.
                   </p>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
+                    {/* Inherit ERC8056Base */}
                     <div className="p-3 bg-white rounded border border-emerald-100">
                       <h4 className="font-medium text-sm text-slate-900 mb-2">
-                        Deployment Steps:
+                        Hooks to Implement:
                       </h4>
-                      <ol className="text-xs text-slate-600 space-y-1.5 list-decimal list-inside">
-                        <li>
-                          Navigate to the{" "}
-                          <code className="bg-emerald-50 px-1 rounded">
-                            contracts
-                          </code>{" "}
-                          directory
-                        </li>
-                        <li>
-                          Install dependencies:{" "}
-                          <code className="bg-emerald-50 px-1 rounded">
-                            npm install
+                      <div className="text-xs text-slate-600 space-y-2 mb-3">
+                        <div>
+                          <code className="bg-emerald-50 px-1 rounded font-semibold">
+                            _authorizeMultiplierUpdate()
                           </code>
-                        </li>
-                        <li>
-                          Configure your{" "}
-                          <code className="bg-emerald-50 px-1 rounded">
-                            .env
-                          </code>{" "}
-                          file with your private key and RPC URLs
-                        </li>
-                        <li>
-                          Deploy to testnet:{" "}
-                          <code className="bg-emerald-50 px-1 rounded">
-                            npm run deploy:testnet
-                          </code>
-                        </li>
-                        <li>
-                          Copy the deployed contract address and use it below
-                        </li>
-                      </ol>
+                          <span className="text-red-500 ml-1">(Required)</span>
+                          <p className="text-slate-500 mt-0.5">
+                            Access control for multiplier updates. Recommend using multisig or timelock.
+                        </p>
                     </div>
-                    <div className="p-3 bg-white rounded border border-emerald-100">
-                      <h4 className="font-medium text-sm text-slate-900 mb-2">
-                        Contract Details:
-                      </h4>
-                      <div className="text-xs text-slate-600 space-y-1">
-                        <p>
-                          <span className="font-medium">Contract:</span>{" "}
+                        <div>
                           <code className="bg-emerald-50 px-1 rounded">
-                            ScaledUIToken
+                            _validateMultiplier()
                           </code>
+                          <span className="text-slate-400 ml-1">(Optional)</span>
+                          <p className="text-slate-500 mt-0.5">
+                            Set min/max thresholds to prevent overflow or precision loss.
                         </p>
-                        <p>
-                          <span className="font-medium">Location:</span>{" "}
+                        </div>
+                        <div>
                           <code className="bg-emerald-50 px-1 rounded">
-                            contracts/scaled-ui-amount/ERC8056Token.sol
+                            _beforeMultiplierUpdate()
                           </code>
+                          <span className="text-slate-400 ml-1">(Optional)</span>
+                          <p className="text-slate-500 mt-0.5">
+                            Prevent overwriting pending changes.
                         </p>
-                        <p>
-                          <span className="font-medium">
-                            Constructor Parameters:
-                          </span>{" "}
-                          <code className="bg-emerald-50 px-1 rounded">
-                            name, symbol, initialSupply, initialOwner
-                          </code>
-                        </p>
+                      </div>
+                    </div>
+
+                      {/* Deployment Options */}
+                      <div className="space-y-3">
+                        <ExpandableSection
+                          title="View Integration Code"
+                          defaultExpanded={false}
+                        >
+                          <CodeBlock
+                            label="Inherit ERC8056Base"
+                            copyable
+                            language="solidity"
+                            code={`// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+// Import from GitHub (for Remix) or use npm package
+import {ERC8056Base} from "https://github.com/bnb-chain/poc-labs/blob/main/contracts/scaled-ui-amount/ERC8056Base.sol";
+
+contract MyToken is ERC8056Base, Ownable {
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint256 initialSupply,
+        address owner
+    ) ERC20(name, symbol) Ownable(owner) {
+        _mint(owner, initialSupply * 10 ** decimals());
+    }
+
+    // Required: Access control (recommend multisig/timelock for production)
+    function _authorizeMultiplierUpdate() internal override onlyOwner {}
+
+    // Optional: Set multiplier bounds to prevent overflow/precision loss
+    // function _validateMultiplier(uint256 newMultiplier) internal pure override {
+    //     require(newMultiplier >= 1e15 && newMultiplier <= 1e21, "Out of range");
+    // }
+
+    // Optional: Prevent overwriting pending changes
+    // function _beforeMultiplierUpdate(uint256, uint256) internal view override {
+    //     require(!hasPendingMultiplier(), "Cannot overwrite pending");
+    // }
+}`}
+                          />
+                        </ExpandableSection>
+
+                        <ExpandableSection
+                          title="Deploy via Local Environment (Hardhat)"
+                          defaultExpanded={false}
+                        >
+                          <div className="space-y-3">
+                            <div className="text-xs text-slate-600">
+                              <p className="font-medium text-slate-700 mb-2">Deployment Steps:</p>
+                              <ol className="list-decimal list-inside space-y-1.5 text-slate-500">
+                                <li>Navigate to the <code className="bg-slate-100 px-1 rounded">contracts</code> directory</li>
+                                <li>Install dependencies: <code className="bg-slate-100 px-1 rounded">npm install</code></li>
+                                <li>Configure your <code className="bg-slate-100 px-1 rounded">.env</code> file with your private key and RPC URLs</li>
+                                <li>Deploy to testnet: <code className="bg-slate-100 px-1 rounded">npm run deploy:testnet</code></li>
+                                <li>Copy the deployed contract address and use it below</li>
+                              </ol>
+                  </div>
+                            <div className="p-3 bg-slate-50 rounded border border-slate-200">
+                              <p className="text-xs font-medium text-slate-700 mb-1">Contract Details:</p>
+                              <div className="text-xs text-slate-500 space-y-0.5">
+                                <p>Contract: <code className="bg-slate-100 px-1 rounded">ERC8056Token</code></p>
+                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/scaled-ui-amount/ERC8056Token.sol</code></p>
+                                <p>Constructor Parameters: <code className="bg-slate-100 px-1 rounded">name, symbol, initialSupply, initialOwner</code></p>
+                              </div>
+                            </div>
+                          </div>
+                        </ExpandableSection>
+
+                        <ExpandableSection
+                          title="Deploy via Remix IDE"
+                          defaultExpanded={false}
+                        >
+                          <div className="space-y-3">
+                            <div className="text-xs text-slate-600">
+                              <p className="font-medium text-slate-700 mb-2">Steps to deploy via Remix:</p>
+                              <ol className="list-decimal list-inside space-y-1.5 text-slate-500">
+                                <li>Open <a href="https://remix.ethereum.org" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">Remix IDE</a></li>
+                                <li>Create a new file and paste the integration code above</li>
+                                <li>Compile with Solidity 0.8.20+</li>
+                                <li>Connect MetaMask to BSC Testnet</li>
+                                <li>Deploy with constructor params:
+                                  <ul className="list-disc list-inside ml-4 mt-1">
+                                    <li><code className="bg-slate-100 px-1 rounded">name</code>: "My Token"</li>
+                                    <li><code className="bg-slate-100 px-1 rounded">symbol</code>: "MTK"</li>
+                                    <li><code className="bg-slate-100 px-1 rounded">initialSupply</code>: 1000000</li>
+                                    <li><code className="bg-slate-100 px-1 rounded">owner</code>: your wallet address</li>
+                                  </ul>
+                                </li>
+                                <li>Confirm transaction in MetaMask</li>
+                                <li>Copy the deployed contract address and use it below</li>
+                              </ol>
+                            </div>
+                          </div>
+                        </ExpandableSection>
                       </div>
                     </div>
                   </div>
@@ -587,18 +724,33 @@ export function Eip8056Portal() {
                         {tokenData.decimals}
                       </div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs text-slate-500 mb-1">
                         Total Supply
                       </div>
-                      <div className="font-medium text-slate-900 text-sm">
-                        {Number(tokenData.totalSupply).toLocaleString(
-                          undefined,
-                          {
-                            maximumFractionDigits: 2,
-                          }
-                        )}
-                      </div>
+                      {(() => {
+                        const formatted = Number(tokenData.totalSupply).toLocaleString();
+                        const isLong = formatted.length > 20;
+                        if (isLong) {
+                          return (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="font-medium text-slate-900 text-sm truncate cursor-help max-w-[150px]">
+                                  {formatted}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-[300px] break-all">
+                                {formatted}
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        }
+                        return (
+                          <div className="font-medium text-slate-900 text-sm">
+                            {formatted}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -742,36 +894,42 @@ export function Eip8056Portal() {
                       </div>
                       <ul className="text-sm text-yellow-600 space-y-1 list-disc list-inside">
                         <li>
-                          Check to see if the token supports using{" "}
+                          Check EIP-8056 support:{" "}
                           <code className="bg-yellow-100 px-1 rounded">
                             supportsInterface
                           </code>{" "}
-                          with Interface ID:{" "}
+                          with{" "}
                           <code className="bg-blue-100 px-1 rounded font-mono">
-                            ERC8056_INTERFACE_ID={ERC8056_INTERFACE_ID}
-                          </code>{" "}
-                          (erc8056 interface id)
+                            {ERC8056_INTERFACE_ID}
+                          </code>
                         </li>
                         <li>
-                          Get UI balance using{" "}
+                          Check scheduled extension:{" "}
+                          <code className="bg-yellow-100 px-1 rounded">
+                            supportsInterface
+                          </code>{" "}
+                          with{" "}
+                          <code className="bg-blue-100 px-1 rounded font-mono">
+                            {ERC8056_SCHEDULED_INTERFACE_ID}
+                          </code>{" "}
+                          (IERC8056Scheduled)
+                        </li>
+                        <li>
+                          Get UI balance:{" "}
                           <code className="bg-yellow-100 px-1 rounded">
                             balanceOfUI(address)
                           </code>{" "}
-                          - this is the scaled amount users should see
+                          - scaled amount for display
                         </li>
                         <li>
-                          Get raw balance using{" "}
+                          Get raw balance:{" "}
                           <code className="bg-yellow-100 px-1 rounded">
                             balanceOf(address)
                           </code>{" "}
-                          - this is the actual on-chain balance
+                          - actual on-chain balance
                         </li>
                         <li>
-                          Display both UI balance and raw balance to users for
-                          transparency
-                        </li>
-                        <li>
-                          Get the multiplier using{" "}
+                          Get multiplier:{" "}
                           <code className="bg-yellow-100 px-1 rounded">
                             uiMultiplier()
                           </code>
@@ -835,40 +993,35 @@ export function Eip8056Portal() {
                         copyable
                         language="typescript"
                         code={`import { formatUnits, type Address, type PublicClient, getContract } from 'viem'
-import { ERC8056_INTERFACE_ID } from './interfaceId'
-import { ERC8056_ABI } from './abi'
+
+const ERC8056_INTERFACE_ID = '${ERC8056_INTERFACE_ID}'
+const ERC8056_SCHEDULED_INTERFACE_ID = '${ERC8056_SCHEDULED_INTERFACE_ID}'
 
 /**
  * Get token balance information with Scaled UI support
- * Returns both display (UI) and raw balances, plus multiplier if supported
  */
 async function displayBalance(
   tokenAddress: Address,
   userAddress: Address,
   publicClient: PublicClient
-): Promise<{
-  display: string
-  raw: string
-  multiplier: string
-  isEIP8056: boolean
-}> {
-  // Create contract instance
+) {
   const token = getContract({
     address: tokenAddress,
     abi: ERC8056_ABI,
     client: publicClient,
   })
 
-  // Check if scaled UI is supported
-  const supportsScaledUI = await token.read.supportsInterface([
-    ERC8056_INTERFACE_ID,
+  // Check EIP-8056 support
+  const isEIP8056 = await token.read.supportsInterface([ERC8056_INTERFACE_ID])
+
+  // Check scheduled extension support
+  const supportsScheduled = await token.read.supportsInterface([
+    ERC8056_SCHEDULED_INTERFACE_ID,
   ])
 
-  // Get decimals first (needed for formatting)
   const decimals = await token.read.decimals()
 
-  if (supportsScaledUI) {
-    // Get UI balance, raw balance, and multiplier
+  if (isEIP8056) {
     const [uiBalance, rawBalance, multiplier] = await Promise.all([
       token.read.balanceOfUI([userAddress]),
       token.read.balanceOf([userAddress]),
@@ -880,31 +1033,26 @@ async function displayBalance(
       raw: formatUnits(rawBalance as bigint, Number(decimals)),
       multiplier: formatUnits(multiplier as bigint, 18),
       isEIP8056: true,
+      supportsScheduled,
     }
   } else {
-    // Fall back to standard ERC-20
     const balance = await token.read.balanceOf([userAddress])
-
     return {
       display: formatUnits(balance as bigint, Number(decimals)),
       raw: formatUnits(balance as bigint, Number(decimals)),
       multiplier: '1.0',
       isEIP8056: false,
+      supportsScheduled: false,
     }
   }
 }
 
-// Usage in wallet UI
-const balance = await displayBalance(
-  tokenAddress,  // Token contract address
-  userAddress,   // User wallet address
-  publicClient   // viem PublicClient instance
-)
-
+// Usage
+const balance = await displayBalance(tokenAddress, userAddress, publicClient)
 console.log(\`Display: \${balance.display} tokens\`)
 console.log(\`Raw: \${balance.raw} tokens\`)
 console.log(\`Multiplier: \${balance.multiplier}x\`)
-console.log(\`Is EIP-8056: \${balance.isEIP8056}\`)`}
+console.log(\`Supports Scheduled: \${balance.supportsScheduled}\`)`}
                       />
                     </ExpandableSection>
                   </CardContent>
@@ -1059,22 +1207,211 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    {/* Multiplier Status - IERC8056Scheduled extension */}
+                    {tokenData.supportsScheduled && (
+                      <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-slate-500" />
+                            <h4 className="text-sm font-medium text-slate-700">
+                              Multiplier Status
+                            </h4>
+                          </div>
+                          <span className="text-xs text-slate-400 font-mono">
+                            IERC8056Scheduled
+                          </span>
+                        </div>
+                        {/* Current Multiplier */}
+                        <div className="flex items-center justify-between p-3 bg-white rounded border border-slate-200 mb-3">
+                          <span className="text-sm text-slate-600">
+                            Current Multiplier
+                          </span>
+                          <span className="font-mono text-lg font-semibold text-slate-700">
+                            {tokenData.multiplier}×
+                          </span>
+                        </div>
+                        {/* Query Buttons */}
+                        <div className="grid md:grid-cols-2 gap-3">
+                          {/* hasPendingMultiplier */}
+                          <div className="p-3 bg-white rounded border border-slate-200">
+                            <p className="text-xs text-slate-500 mb-2">
+                              Check if a scheduled change exists
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={queryHasPending}
+                              disabled={queryLoading === 'hasPending'}
+                              className="w-full h-8 text-xs font-mono"
+                            >
+                              {queryLoading === 'hasPending' ? (
+                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <Search className="w-3 h-3 mr-1" />
+                              )}
+                              hasPendingMultiplier()
+                            </Button>
+                            {hasPendingResult !== null && (
+                              <div className="mt-3 flex items-center justify-center gap-2">
+                                {hasPendingResult ? (
+                                  <>
+                                    <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+                                    <span className="text-sm font-medium text-yellow-700">
+                                      Yes, pending change exists
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                                    <span className="text-sm text-slate-500">
+                                      No pending change
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {/* pendingMultiplier */}
+                          <div className="p-3 bg-white rounded border border-slate-200">
+                            <p className="text-xs text-slate-500 mb-2">
+                              Get scheduled multiplier details
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={queryPendingMultiplier}
+                              disabled={queryLoading === 'pending'}
+                              className="w-full h-8 text-xs font-mono"
+                            >
+                              {queryLoading === 'pending' ? (
+                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <Search className="w-3 h-3 mr-1" />
+                              )}
+                              pendingMultiplier()
+                            </Button>
+                            {pendingResult !== null && (
+                              <div className="mt-3">
+                                {pendingResult.effectiveAt > 0 ? (
+                                  <div className="space-y-1.5">
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-500">New Value:</span>
+                                      <span className="font-semibold text-yellow-600">
+                                        {pendingResult.multiplier}×
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-slate-500">Effective:</span>
+                                      <span className="text-slate-600">
+                                        {new Date(pendingResult.effectiveAt * 1000).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-center text-sm text-slate-400">
+                                    No pending change
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* Integration Code */}
+                        <div className="mt-3">
+                          <ExpandableSection
+                            title="View Integration Code"
+                            defaultExpanded={false}
+                          >
+                            <CodeBlock
+                              label="Check Pending Multiplier (TypeScript + Viem)"
+                              copyable
+                              language="typescript"
+                              code={`import { createPublicClient, http, getContract } from 'viem'
+import { bscTestnet } from 'viem/chains'
+
+const ERC8056_SCHEDULED_ABI = [
+  {
+    name: 'hasPendingMultiplier',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view'
+  },
+  {
+    name: 'pendingMultiplier',
+    type: 'function',
+    inputs: [],
+    outputs: [
+      { name: 'multiplier', type: 'uint256' },
+      { name: 'effectiveAt', type: 'uint256' }
+    ],
+    stateMutability: 'view'
+  }
+] as const
+
+const client = createPublicClient({
+  chain: bscTestnet,
+  transport: http()
+})
+
+const token = getContract({
+  address: '${contractAddress || "0x..."}',
+  abi: ERC8056_SCHEDULED_ABI,
+  client
+})
+
+// Check if there's a pending multiplier change
+const hasPending = await token.read.hasPendingMultiplier()
+console.log('Has pending change:', hasPending)
+
+if (hasPending) {
+  // Get the pending multiplier details
+  const [multiplier, effectiveAt] = await token.read.pendingMultiplier()
+  console.log('Pending multiplier:', multiplier.toString())
+  console.log('Effective at:', new Date(Number(effectiveAt) * 1000).toLocaleString())
+}`}
+                            />
+                          </ExpandableSection>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Only show warning if contract uses owner-based access control */}
+                    {tokenData.owner && (
+                      <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                       <div className="flex items-start gap-2">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-yellow-800">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div className="text-sm text-amber-800">
                           <p className="font-medium mb-1">
-                            Owner Only: Only the contract owner can update the
-                            UI multiplier
-                          </p>
-                          <p className="text-xs text-yellow-700">
-                            This function is restricted to the contract owner
-                            address. If you're not the owner, you can view the
-                            multiplier but cannot modify it.
-                          </p>
+                              Access Control Recommendation
+                            </p>
+                            <p className="text-xs text-amber-700 mb-2">
+                              This contract uses{" "}
+                              <code className="bg-amber-100 px-1 rounded">
+                                onlyOwner
+                              </code>{" "}
+                              for access control. Centralized control creates risk -
+                              a single compromised key can manipulate all UI balances.
+                              For production:
+                            </p>
+                            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+                              <li>
+                                Use a <strong>multisig wallet</strong> (e.g., Gnosis
+                                Safe) instead of single EOA
+                              </li>
+                              <li>
+                                Implement <strong>timelock contract</strong> for
+                                delayed execution
+                              </li>
+                              <li>
+                                Use <strong>role-based access control</strong>{" "}
+                                (AccessControl) for separation of duties
+                              </li>
+                            </ul>
                         </div>
                       </div>
                     </div>
+                    )}
                     <div className="grid md:grid-cols-2 gap-4">
                       {/* Option 1: BSCScan */}
                       <Card className="border-yellow-200 bg-yellow-50">
@@ -1123,6 +1460,27 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                          {/* Warning when pending change exists */}
+                          {hasPendingResult === true && (
+                            <div className="p-3 bg-amber-100 rounded-lg border border-amber-300">
+                              <div className="flex items-start gap-2 text-xs text-amber-800">
+                                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="font-medium">
+                                    ⚠️ Warning: A pending change exists
+                                  </p>
+                                  <p className="mt-1 text-amber-700">
+                                    New updates will overwrite the pending change
+                                    (emits{" "}
+                                    <code className="bg-amber-200 px-1 rounded">
+                                      UIMultiplierChangeOverwritten
+                                    </code>{" "}
+                                    event for tracking)
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <div>
                             <label className="text-xs text-slate-600 mb-1 block">
                               New Multiplier
@@ -1165,8 +1523,10 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                         label="Update Multiplier Example"
                         copyable
                         language="typescript"
-                        code={`import { parseUnits } from 'viem'
+                        code={`import { parseUnits, formatUnits } from 'viem'
 import { ethers } from 'ethers'
+
+const ERC8056_SCHEDULED_INTERFACE_ID = '${ERC8056_SCHEDULED_INTERFACE_ID}'
 
 // Update UI multiplier (owner only)
 async function setUIMultiplier(
@@ -1178,14 +1538,29 @@ async function setUIMultiplier(
   const token = new ethers.Contract(
     tokenAddress,
     [
+      'function supportsInterface(bytes4) view returns (bool)',
       'function setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp)',
-      'function uiMultiplier() view returns (uint256)'
+      'function uiMultiplier() view returns (uint256)',
+      'function hasPendingMultiplier() view returns (bool)',
+      'function pendingMultiplier() view returns (uint256, uint256)'
     ],
     signer
   )
 
+  // Check for pending changes (IERC8056Scheduled extension)
+  const supportsScheduled = await token.supportsInterface(ERC8056_SCHEDULED_INTERFACE_ID)
+  if (supportsScheduled) {
+    const hasPending = await token.hasPendingMultiplier()
+    if (hasPending) {
+      const [pendingValue, pendingEffectiveAt] = await token.pendingMultiplier()
+      console.warn('⚠️ Warning: Pending change will be overwritten!')
+      console.warn(\`   Current pending: \${formatUnits(pendingValue, 18)}x\`)
+      console.warn(\`   Was effective at: \${new Date(Number(pendingEffectiveAt) * 1000)}\`)
+      // UIMultiplierChangeOverwritten event will be emitted
+    }
+  }
+
   // Convert multiplier to wei (18 decimals)
-  // Multiplier uses 18 decimal places: 1e18 = 1.0
   const multiplierWei = parseUnits(newMultiplier, 18)
 
   // Validate: effectiveAtTimestamp must be in the future
@@ -1195,7 +1570,6 @@ async function setUIMultiplier(
   }
 
   // Execute transaction
-  // This will emit UIMultiplierUpdated event
   const tx = await token.setUIMultiplier(multiplierWei, effectiveAtTimestamp)
   const receipt = await tx.wait()
 
@@ -1219,259 +1593,6 @@ console.log(\`Effective at: \${new Date(result.effectiveAt * 1000)}\`)`}
                   </CardContent>
                 </Card>
 
-                {/* Case 4: Scheduled Extension - Only show if token supports it */}
-                {tokenData.supportsScheduled && (
-                <Card className="border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-slate-600" />
-                      Case 4: Scheduled Extension (IERC8056Scheduled)
-                    </CardTitle>
-                    <CardDescription>
-                      How to detect and use the scheduled multiplier extension -
-                      NOT part of EIP-8056 standard
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Pending Multiplier Status */}
-                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Calendar className="w-4 h-4 text-slate-500" />
-                        <h4 className="text-sm font-medium text-slate-700">
-                          Pending Multiplier
-                        </h4>
-                      </div>
-                      {tokenData.pendingMultiplier &&
-                      countdown !== null &&
-                      countdown > 0 ? (
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div>
-                            <div className="text-xs text-slate-500 mb-1">
-                              Pending Value
-                            </div>
-                            <div className="font-mono text-lg font-semibold text-yellow-700">
-                              {tokenData.pendingMultiplier.value}×
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-500 mb-1">
-                              Effective At
-                            </div>
-                            <div className="font-mono text-sm text-slate-700">
-                              {new Date(
-                                tokenData.pendingMultiplier.effectiveAt * 1000
-                              ).toLocaleString()}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-500 mb-1">
-                              Countdown
-                            </div>
-                            <div className="font-mono text-lg font-semibold text-amber-600">
-                              {countdown >= 3600
-                                ? `${Math.floor(countdown / 3600)}h ${Math.floor((countdown % 3600) / 60)}m`
-                                : countdown >= 60
-                                  ? `${Math.floor(countdown / 60)}m ${countdown % 60}s`
-                                  : `${countdown}s`}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-slate-500">
-                          No pending change
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="flex items-start gap-2">
-                        <Info className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-slate-700">
-                          <p className="font-medium mb-2">
-                            Extension Interface: IERC8056Scheduled
-                          </p>
-                          <p className="text-slate-600 mb-2">
-                            This is an <strong>extension</strong> to EIP-8056,
-                            not part of the core standard. It allows querying
-                            pending multiplier changes before they take effect.
-                          </p>
-                          <div className="mt-3 p-2 bg-white rounded border border-slate-200">
-                            <div className="text-xs font-mono">
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">
-                                  Interface ID:
-                                </span>
-                                <span className="text-slate-700">
-                                  {ERC8056_SCHEDULED_INTERFACE_ID}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="text-sm font-medium text-slate-700 mb-3">
-                        Extension Functions:
-                      </div>
-                      <div className="space-y-3">
-                        <div className="p-3 bg-white rounded border border-slate-200">
-                          <code className="text-xs font-mono text-slate-700">
-                            pendingMultiplier() → (uint256 multiplier, uint256
-                            effectiveAt)
-                          </code>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Returns the scheduled multiplier and when it will
-                            take effect
-                          </p>
-                        </div>
-                        <div className="p-3 bg-white rounded border border-slate-200">
-                          <code className="text-xs font-mono text-slate-700">
-                            hasPendingMultiplier() → bool
-                          </code>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Returns true if there's a pending change that hasn't
-                            taken effect yet
-                          </p>
-                        </div>
-                        <div className="p-3 bg-white rounded border border-slate-200">
-                          <code className="text-xs font-mono text-slate-700">
-                            event UIMultiplierChangeOverwritten(...)
-                          </code>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Emitted when a pending change is overwritten before
-                            taking effect
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <ExpandableSection
-                      title="View Integration Code"
-                      defaultExpanded={false}
-                    >
-                      <CodeBlock
-                        label="Scheduled Extension Integration"
-                        copyable
-                        language="typescript"
-                        code={`import { formatUnits, type Address, type PublicClient } from 'viem'
-
-// Interface IDs
-const ERC8056_INTERFACE_ID = '${ERC8056_INTERFACE_ID}'
-const ERC8056_SCHEDULED_INTERFACE_ID = '${ERC8056_SCHEDULED_INTERFACE_ID}'
-
-// ABI for scheduled extension
-const SCHEDULED_ABI = [
-  {
-    name: 'supportsInterface',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'interfaceId', type: 'bytes4' }],
-    outputs: [{ type: 'bool' }]
-  },
-  {
-    name: 'pendingMultiplier',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [
-      { name: 'multiplier', type: 'uint256' },
-      { name: 'effectiveAt', type: 'uint256' }
-    ]
-  },
-  {
-    name: 'hasPendingMultiplier',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ type: 'bool' }]
-  }
-] as const
-
-/**
- * Check if token supports the scheduled extension
- */
-async function supportsScheduledExtension(
-  tokenAddress: Address,
-  publicClient: PublicClient
-): Promise<boolean> {
-  try {
-    const result = await publicClient.readContract({
-      address: tokenAddress,
-      abi: SCHEDULED_ABI,
-      functionName: 'supportsInterface',
-      args: [ERC8056_SCHEDULED_INTERFACE_ID as \`0x\${string}\`]
-    })
-    return result as boolean
-  } catch {
-    return false
-  }
-}
-
-/**
- * Get pending multiplier information (if extension is supported)
- */
-async function getPendingMultiplier(
-  tokenAddress: Address,
-  publicClient: PublicClient
-): Promise<{
-  hasPending: boolean
-  pendingValue: string | null
-  effectiveAt: Date | null
-  remainingSeconds: number | null
-} | null> {
-  // First check if extension is supported
-  const supported = await supportsScheduledExtension(tokenAddress, publicClient)
-  if (!supported) return null
-
-  try {
-    const hasPending = await publicClient.readContract({
-      address: tokenAddress,
-      abi: SCHEDULED_ABI,
-      functionName: 'hasPendingMultiplier'
-    }) as boolean
-
-    if (!hasPending) {
-      return { hasPending: false, pendingValue: null, effectiveAt: null, remainingSeconds: null }
-    }
-
-    const [multiplier, effectiveAt] = await publicClient.readContract({
-      address: tokenAddress,
-      abi: SCHEDULED_ABI,
-      functionName: 'pendingMultiplier'
-    }) as [bigint, bigint]
-
-    const effectiveDate = new Date(Number(effectiveAt) * 1000)
-    const remaining = Number(effectiveAt) - Math.floor(Date.now() / 1000)
-
-    return {
-      hasPending: true,
-      pendingValue: formatUnits(multiplier, 18),
-      effectiveAt: effectiveDate,
-      remainingSeconds: remaining > 0 ? remaining : 0
-    }
-  } catch {
-    return null
-  }
-}
-
-// Usage example
-const pendingInfo = await getPendingMultiplier(tokenAddress, publicClient)
-
-if (pendingInfo === null) {
-  console.log('Token does not support scheduled extension')
-} else if (pendingInfo.hasPending) {
-  console.log(\`Pending multiplier: \${pendingInfo.pendingValue}x\`)
-  console.log(\`Effective at: \${pendingInfo.effectiveAt}\`)
-  console.log(\`Remaining: \${pendingInfo.remainingSeconds}s\`)
-} else {
-  console.log('No pending multiplier change')`}
-                      />
-                    </ExpandableSection>
-                  </CardContent>
-                </Card>
-                )}
               </div>
             )}
           </div>
