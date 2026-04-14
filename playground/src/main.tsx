@@ -41,7 +41,6 @@ const configOptions: Parameters<typeof getDefaultConfig>[0] = {
     [bsc.id]: http("https://bsc-dataseed.binance.org"),
   },
   walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "",
-  enableFamily: false, // Disable FamilyAccountsSdk
 };
 
 // Add localhost transport in dev mode
