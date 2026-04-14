@@ -1,12 +1,13 @@
-# EIP-8056: Scaled UI Amount
+# BEP-677: Implement EIP-8056 Scaled UI Amount
 
-Reference implementation of EIP-8056 — apply an updatable multiplier to UI-displayed token balances without minting or burning.
+Reference implementation of [BEP-677](https://github.com/bnb-chain/beps/blob/master/BEPs/BEP-677.md) — apply an updatable multiplier to UI-displayed token balances without minting or burning.
 
-📖 [EIP Specification](https://eips.ethereum.org/EIPS/eip-8056) · 🧪 [Live Demo](https://bnb-chain.github.io/eip-8056-contracts)
+📖 [BEP-677](https://github.com/bnb-chain/beps/blob/master/BEPs/BEP-677.md) · 📖 [EIP-8056](https://eips.ethereum.org/EIPS/eip-8056) · 🧪 [Live Demo](https://bnb-chain.github.io/bep-677-contracts)
 
 ## Contract Addresses
 
 #### BSC Testnet
+
 - **ScaledUIToken**: `0xB9d96f9579c9E38E24f4a4f9b5AD807f19b3a62e`
 
 ## About
