@@ -40,11 +40,11 @@ import {
 } from "lucide-react";
 import { isAddress } from "viem";
 import {
-  ERC8056_INTERFACE_ID,
+  EIP8056_INTERFACES,
   ERC8056_SCHEDULED_INTERFACE_ID,
 } from "./interfaceId";
 
-const DEFAULT_TOKEN_ADDRESS = "0x65BC7da1308Df144a2AD3dfAf8Df85A51Ddf18AA";
+const DEFAULT_TOKEN_ADDRESS = "0xB9d96f9579c9E38E24f4a4f9b5AD807f19b3a62e";
 
 // ============================================================================
 // Reusable Components
@@ -726,7 +726,7 @@ contract MyToken is ERC8056Base, Ownable {
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs text-slate-500 mb-1">
-                        Total Supply
+                        Total Supply (Raw)
                       </div>
                       {(() => {
                         const formatted = Number(tokenData.totalSupply).toLocaleString();
@@ -752,6 +752,16 @@ contract MyToken is ERC8056Base, Ownable {
                         );
                       })()}
                     </div>
+                    {tokenData.isEIP8056 && (
+                      <div className="min-w-0">
+                        <div className="text-xs text-emerald-600 mb-1">
+                          Total Supply UI
+                        </div>
+                        <div className="font-medium text-emerald-700 text-sm">
+                          {Number(tokenData.totalSupplyUI).toLocaleString()}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Addresses Grid */}
@@ -893,27 +903,19 @@ contract MyToken is ERC8056Base, Ownable {
                         Key Difference from Standard ERC20:
                       </div>
                       <ul className="text-sm text-yellow-600 space-y-1 list-disc list-inside">
-                        <li>
-                          Check EIP-8056 support:{" "}
-                          <code className="bg-yellow-100 px-1 rounded">
-                            supportsInterface
-                          </code>{" "}
-                          with{" "}
-                          <code className="bg-blue-100 px-1 rounded font-mono">
-                            {ERC8056_INTERFACE_ID}
-                          </code>
-                        </li>
-                        <li>
-                          Check scheduled extension:{" "}
-                          <code className="bg-yellow-100 px-1 rounded">
-                            supportsInterface
-                          </code>{" "}
-                          with{" "}
-                          <code className="bg-blue-100 px-1 rounded font-mono">
-                            {ERC8056_SCHEDULED_INTERFACE_ID}
-                          </code>{" "}
-                          (IERC8056Scheduled)
-                        </li>
+                        {EIP8056_INTERFACES.map((iface) => (
+                          <li key={iface.name}>
+                            <code className="bg-yellow-100 px-1 rounded">supportsInterface</code>{" "}
+                            <code className="bg-blue-100 px-1 rounded font-mono">{iface.id}</code>{" "}
+                            → <span className="font-medium">{iface.name}</span>{" "}
+                            <span className={`text-xs px-1 rounded ${
+                              iface.type === "MUST" ? "bg-red-100 text-red-700" :
+                              iface.type === "REQUIRED" ? "bg-orange-100 text-orange-700" :
+                              iface.type === "OPTIONAL" ? "bg-green-100 text-green-700" :
+                              "bg-purple-100 text-purple-700"
+                            }`}>{iface.type}</span>
+                          </li>
+                        ))}
                         <li>
                           Get UI balance:{" "}
                           <code className="bg-yellow-100 px-1 rounded">
@@ -994,8 +996,12 @@ contract MyToken is ERC8056Base, Ownable {
                         language="typescript"
                         code={`import { formatUnits, type Address, type PublicClient, getContract } from 'viem'
 
-const ERC8056_INTERFACE_ID = '${ERC8056_INTERFACE_ID}'
-const ERC8056_SCHEDULED_INTERFACE_ID = '${ERC8056_SCHEDULED_INTERFACE_ID}'
+// EIP-8056 Interface IDs (ERC-165)
+const SCALED_UI_AMOUNT_ID = '0xa60bf13d'           // IScaledUIAmount (core, MUST)
+const NEW_UI_MULTIPLIER_ID = '0x4bd27648'          // IScaledUIAmountNewUIMultiplier (required)
+const CONVERSION_ID = '0x57854fc3'                 // IScaledUIAmountConversion (optional)
+const BALANCES_ID = '0xd890fd71'                   // IScaledUIAmountBalances (optional)
+const ERC8056_SCHEDULED_INTERFACE_ID = '${ERC8056_SCHEDULED_INTERFACE_ID}' // IERC8056Scheduled (BSC ext)
 
 /**
  * Get token balance information with Scaled UI support
@@ -1011,10 +1017,13 @@ async function displayBalance(
     client: publicClient,
   })
 
-  // Check EIP-8056 support
-  const isEIP8056 = await token.read.supportsInterface([ERC8056_INTERFACE_ID])
+  // Check EIP-8056 core support
+  const isEIP8056 = await token.read.supportsInterface([SCALED_UI_AMOUNT_ID])
+  const supportsNewMultiplier = await token.read.supportsInterface([NEW_UI_MULTIPLIER_ID])
+  const supportsConversion = await token.read.supportsInterface([CONVERSION_ID])
+  const supportsBalances = await token.read.supportsInterface([BALANCES_ID])
 
-  // Check scheduled extension support
+  // Check BSC scheduled extension support
   const supportsScheduled = await token.read.supportsInterface([
     ERC8056_SCHEDULED_INTERFACE_ID,
   ])

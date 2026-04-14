@@ -1,90 +1,108 @@
 import { toFunctionSelector } from "viem";
 
-/**
- * Calculate the interface ID for IERC8056 (Scaled UI Amount Extension)
- *
- * According to EIP-165, the interface ID is the XOR of all function selectors
- * in the interface. This includes:
- * - uiMultiplier()
- * - toUIAmount(uint256)
- * - fromUIAmount(uint256)
- * - balanceOfUI(address)
- * - setUIMultiplier(uint256,uint256)
- *
- * @returns The interface ID as a hex string (0x + 8 hex characters)
- */
-export function calculateERC8056InterfaceId(): `0x${string}` {
-  // Get function selectors (first 4 bytes of keccak256 hash)
-  const selectors = [
-    toFunctionSelector("function uiMultiplier() view returns (uint256)"),
-    toFunctionSelector(
-      "function toUIAmount(uint256 rawAmount) view returns (uint256)"
-    ),
-    toFunctionSelector(
-      "function fromUIAmount(uint256 uiAmount) view returns (uint256)"
-    ),
-    toFunctionSelector(
-      "function balanceOfUI(address account) view returns (uint256)"
-    ),
-    toFunctionSelector(
-      "function setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp)"
-    ),
-  ];
-
-  // XOR all selectors
-  let interfaceId = BigInt(0);
-  for (const selector of selectors) {
-    interfaceId = interfaceId ^ BigInt(selector);
+function xorSelectors(sigs: string[]): `0x${string}` {
+  let id = BigInt(0);
+  for (const sig of sigs) {
+    id = id ^ BigInt(toFunctionSelector(sig as `function ${string}`));
   }
-
-  // Format as bytes4 (8 hex chars with 0x prefix)
-  const hexString = interfaceId.toString(16).padStart(8, "0");
-  return `0x${hexString}` as `0x${string}`;
+  return `0x${id.toString(16).padStart(8, "0")}` as `0x${string}`;
 }
 
 /**
- * Calculate the interface ID for IERC8056Scheduled (Scheduled Multiplier Extension)
- *
- * This is an EXTENSION interface, NOT part of EIP-8056 standard.
- * It provides functions to query pending multiplier changes.
- *
- * Functions included:
- * - pendingMultiplier() returns (uint256, uint256)
- * - hasPendingMultiplier() returns (bool)
- *
- * @returns The interface ID as a hex string (0x + 8 hex characters)
+ * EIP-8056 Core Interface
+ * Functions: uiMultiplier()
+ * ID: 0xa60bf13d
  */
-export function calculateERC8056ScheduledInterfaceId(): `0x${string}` {
-  const selectors = [
-    toFunctionSelector(
-      "function pendingMultiplier() view returns (uint256 multiplier, uint256 effectiveAt)"
-    ),
-    toFunctionSelector("function hasPendingMultiplier() view returns (bool)"),
-  ];
-
-  let interfaceId = BigInt(0);
-  for (const selector of selectors) {
-    interfaceId = interfaceId ^ BigInt(selector);
-  }
-
-  const hexString = interfaceId.toString(16).padStart(8, "0");
-  return `0x${hexString}` as `0x${string}`;
-}
+export const SCALED_UI_AMOUNT_INTERFACE_ID: `0x${string}` = xorSelectors([
+  "function uiMultiplier() view returns (uint256)",
+]);
 
 /**
- * Pre-calculated interface ID for IERC8056
- * This value is constant and will never change once the interface is finalized.
- *
- * You can verify this by running: calculateERC8056InterfaceId()
+ * EIP-8056 Required Extension: Pending Multiplier
+ * Functions: newUIMultiplier(), effectiveAt()
+ * ID: 0x4bd27648
  */
-export const ERC8056_INTERFACE_ID: `0x${string}` =
-  calculateERC8056InterfaceId();
+export const SCALED_UI_AMOUNT_NEW_MULTIPLIER_INTERFACE_ID: `0x${string}` =
+  xorSelectors([
+    "function newUIMultiplier() view returns (uint256)",
+    "function effectiveAt() view returns (uint256)",
+  ]);
 
 /**
- * Pre-calculated interface ID for IERC8056Scheduled (Extension)
- * This is NOT part of EIP-8056 standard, but an extension for scheduled multiplier changes.
- *
- * Value: 0xeb0093dd
+ * EIP-8056 Optional Extension: Conversion
+ * Functions: toUIAmount(uint256), fromUIAmount(uint256)
+ * ID: 0x57854fc3
  */
-export const ERC8056_SCHEDULED_INTERFACE_ID: `0x${string}` =
-  calculateERC8056ScheduledInterfaceId();
+export const SCALED_UI_AMOUNT_CONVERSION_INTERFACE_ID: `0x${string}` =
+  xorSelectors([
+    "function toUIAmount(uint256 rawAmount) view returns (uint256)",
+    "function fromUIAmount(uint256 uiAmount) view returns (uint256)",
+  ]);
+
+/**
+ * EIP-8056 Optional Extension: Balances
+ * Functions: balanceOfUI(address), totalSupplyUI()
+ * ID: 0xd890fd71
+ */
+export const SCALED_UI_AMOUNT_BALANCES_INTERFACE_ID: `0x${string}` =
+  xorSelectors([
+    "function balanceOfUI(address account) view returns (uint256)",
+    "function totalSupplyUI() view returns (uint256)",
+  ]);
+
+/**
+ * BSC Extension: Scheduled Multiplier (NOT part of EIP-8056)
+ * Functions: pendingMultiplier(), hasPendingMultiplier()
+ * ID: 0xeb0093dd
+ */
+export const ERC8056_SCHEDULED_INTERFACE_ID: `0x${string}` = xorSelectors([
+  "function pendingMultiplier() view returns (uint256 multiplier, uint256 effectiveAt)",
+  "function hasPendingMultiplier() view returns (bool)",
+]);
+
+/**
+ * @deprecated Use SCALED_UI_AMOUNT_INTERFACE_ID instead.
+ * Kept for backward compatibility.
+ */
+export const ERC8056_INTERFACE_ID = SCALED_UI_AMOUNT_INTERFACE_ID;
+
+/**
+ * All EIP-8056 interface IDs with metadata for display
+ */
+export const EIP8056_INTERFACES = [
+  {
+    name: "IScaledUIAmount",
+    id: SCALED_UI_AMOUNT_INTERFACE_ID,
+    type: "MUST" as const,
+    label: "核心接口",
+    description: "EIP-8056 core — uiMultiplier()",
+  },
+  {
+    name: "IScaledUIAmountNewUIMultiplier",
+    id: SCALED_UI_AMOUNT_NEW_MULTIPLIER_INTERFACE_ID,
+    type: "REQUIRED" as const,
+    label: "Required Extension",
+    description: "EIP-8056 required — newUIMultiplier(), effectiveAt()",
+  },
+  {
+    name: "IScaledUIAmountConversion",
+    id: SCALED_UI_AMOUNT_CONVERSION_INTERFACE_ID,
+    type: "OPTIONAL" as const,
+    label: "Optional Extension",
+    description: "EIP-8056 optional — toUIAmount(), fromUIAmount()",
+  },
+  {
+    name: "IScaledUIAmountBalances",
+    id: SCALED_UI_AMOUNT_BALANCES_INTERFACE_ID,
+    type: "OPTIONAL" as const,
+    label: "Optional Extension",
+    description: "EIP-8056 optional — balanceOfUI(), totalSupplyUI()",
+  },
+  {
+    name: "IERC8056Scheduled",
+    id: ERC8056_SCHEDULED_INTERFACE_ID,
+    type: "EXTENSION" as const,
+    label: "BSC 扩展",
+    description: "BSC extension (非 EIP-8056 标准) — pendingMultiplier(), hasPendingMultiplier()",
+  },
+] as const;
