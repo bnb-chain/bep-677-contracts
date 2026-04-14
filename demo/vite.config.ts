@@ -6,7 +6,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/poc-labs/',
+  base: '/eip-8056-contracts/',
   plugins: [
     react(),
     tailwindcss(),
