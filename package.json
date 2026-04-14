@@ -1,7 +1,7 @@
 {
-  "name": "poc-labs-contracts",
+  "name": "bep-677-contracts",
   "version": "1.0.0",
-  "description": "BNB Chain POC Labs - Smart Contracts",
+  "description": "BEP-677: EIP-8056 Scaled UI Amount - Reference Implementation",
   "scripts": {
     "compile": "hardhat compile",
     "deploy": "hardhat run scripts/deploy.js",

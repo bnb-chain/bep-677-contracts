@@ -31,8 +31,8 @@ const chains = import.meta.env.DEV
   : ([bscTestnet, bsc] as const);
 
 const configOptions: Parameters<typeof getDefaultConfig>[0] = {
-  appName: "EIP-8056 Demo",
-  appDescription: "EIP-8056 Scaled UI Amount Extension Demo",
+  appName: "BEP-677 Playground",
+  appDescription: "BEP-677: Implement EIP-8056 Scaled UI Amount",
   appUrl: "https://example.com",
   appIcon: "https://example.com/icon.png",
   chains,

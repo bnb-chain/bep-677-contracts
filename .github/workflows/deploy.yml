@@ -20,24 +20,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
+          bun-version: latest
 
       - name: Install dependencies
-        working-directory: ui
-        run: npm ci
+        working-directory: playground
+        run: bun install
 
       - name: Build
-        working-directory: ui
-        run: npm run build
+        working-directory: playground
+        run: bun run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ui/dist
+          path: playground/dist
 
   deploy:
     environment:
@@ -49,4 +47,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
