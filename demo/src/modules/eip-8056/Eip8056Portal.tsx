@@ -502,7 +502,7 @@ export function Eip8056Portal() {
                   <p className="text-sm text-slate-600 mb-4">
                     Inherit from{" "}
                     <a
-                      href="https://github.com/bnb-chain/poc-labs/blob/main/contracts/scaled-ui-amount/ERC8056Base.sol"
+                      href="https://github.com/bnb-chain/eip-8056-contracts/blob/main/contracts/src/ERC8056Base.sol"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-emerald-600 hover:text-emerald-700 underline inline-flex items-center gap-0.5"
@@ -563,7 +563,7 @@ pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 // Import from GitHub (for Remix) or use npm package
-import {ERC8056Base} from "https://github.com/bnb-chain/poc-labs/blob/main/contracts/scaled-ui-amount/ERC8056Base.sol";
+import {ERC8056Base} from "https://github.com/bnb-chain/eip-8056-contracts/blob/main/contracts/src/ERC8056Base.sol";
 
 contract MyToken is ERC8056Base, Ownable {
     constructor(
@@ -610,7 +610,7 @@ contract MyToken is ERC8056Base, Ownable {
                               <p className="text-xs font-medium text-slate-700 mb-1">Contract Details:</p>
                               <div className="text-xs text-slate-500 space-y-0.5">
                                 <p>Contract: <code className="bg-slate-100 px-1 rounded">ERC8056Token</code></p>
-                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/scaled-ui-amount/ERC8056Token.sol</code></p>
+                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/src/ERC8056Token.sol</code></p>
                                 <p>Constructor Parameters: <code className="bg-slate-100 px-1 rounded">name, symbol, initialSupply, initialOwner</code></p>
                               </div>
                             </div>
