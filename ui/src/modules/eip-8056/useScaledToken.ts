@@ -3,7 +3,10 @@ import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits, parseUnits, isAddress, type Address } from "viem";
 import { ERC8056_ABI } from "./abi";
 import { displayBalance } from "./tokenUtils";
-import { ERC8056_SCHEDULED_INTERFACE_ID } from "./interfaceId";
+import {
+  SCALED_UI_AMOUNT_INTERFACE_ID,
+  ERC8056_SCHEDULED_INTERFACE_ID,
+} from "./interfaceId";
 
 interface PendingMultiplier {
   value: string;
@@ -17,6 +20,7 @@ interface TokenData {
   symbol: string;
   decimals: number;
   totalSupply: string;
+  totalSupplyUI: string;
   owner: string | null;
   rawBalance: string;
   uiBalance: string;
@@ -164,16 +168,24 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         }
       }
 
-      // If displayBalance wasn't used, detect EIP-8056 support manually
+      // If displayBalance wasn't used, detect EIP-8056 support via supportsInterface
       if (!balanceInfo) {
         try {
-          const mult = await publicClient.readContract({
+          const supported = await publicClient.readContract({
             address: tokenAddress,
             abi: ERC8056_ABI,
-            functionName: "uiMultiplier",
+            functionName: "supportsInterface",
+            args: [SCALED_UI_AMOUNT_INTERFACE_ID],
           });
-          isEIP8056 = true;
-          multiplier = formatUnits(mult as bigint, 18);
+          if (supported) {
+            isEIP8056 = true;
+            const mult = await publicClient.readContract({
+              address: tokenAddress,
+              abi: ERC8056_ABI,
+              functionName: "uiMultiplier",
+            });
+            multiplier = formatUnits(mult as bigint, 18);
+          }
         } catch {
           // Not EIP-8056, will use standard ERC20
         }
@@ -196,6 +208,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
       }
 
       // Get standard ERC20 data and owner
+      let totalSupplyUIValue = "0";
       const [name, symbol, decimals, totalSupply, owner, rawBalance] =
         await Promise.all([
           publicClient
@@ -245,20 +258,34 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
             : Promise.resolve(0n),
         ]);
 
+      // Get totalSupplyUI if EIP-8056 supported
+      if (isEIP8056) {
+        try {
+          const tsUI = await publicClient.readContract({
+            address: tokenAddress,
+            abi: ERC8056_ABI,
+            functionName: "totalSupplyUI",
+          });
+          totalSupplyUIValue = formatUnits(tsUI as bigint, Number(decimals));
+        } catch {
+          totalSupplyUIValue = formatUnits(totalSupply as bigint, Number(decimals));
+        }
+      }
+
       // Get EIP-8056 specific data if supported
       if (isEIP8056) {
-        // Check for pending multiplier (doesn't require wallet connection)
+        // Check for pending multiplier via EIP-standard getters
         try {
           const [nextMult, nextMultEffectiveAt] = await Promise.all([
             publicClient.readContract({
               address: tokenAddress,
               abi: ERC8056_ABI,
-              functionName: "_nextUiMultiplier",
+              functionName: "newUIMultiplier",
             }),
             publicClient.readContract({
               address: tokenAddress,
               abi: ERC8056_ABI,
-              functionName: "_nextUiMultiplierEffectiveAt",
+              functionName: "effectiveAt",
             }),
           ]);
 
@@ -315,6 +342,7 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
         symbol: symbol as string,
         decimals: Number(decimals),
         totalSupply: formatUnits(totalSupply as bigint, Number(decimals)),
+        totalSupplyUI: totalSupplyUIValue,
         owner: owner ? (owner as Address) : null,
         rawBalance: balanceInfo
           ? balanceInfo.raw

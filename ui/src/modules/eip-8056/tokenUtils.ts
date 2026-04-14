@@ -4,7 +4,7 @@ import {
   type PublicClient,
   getContract,
 } from "viem";
-import { ERC8056_INTERFACE_ID } from "./interfaceId";
+import { SCALED_UI_AMOUNT_INTERFACE_ID } from "./interfaceId";
 import { ERC8056_ABI } from "./abi";
 
 /**
@@ -31,7 +31,7 @@ export async function displayBalance(
 
     // Check if scaled UI is supported
     const supportsScaledUI = await token.read.supportsInterface([
-      ERC8056_INTERFACE_ID,
+      SCALED_UI_AMOUNT_INTERFACE_ID,
     ]);
 
     // Get decimals first (needed for formatting)
