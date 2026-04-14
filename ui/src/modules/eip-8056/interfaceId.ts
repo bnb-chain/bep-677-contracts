@@ -74,7 +74,7 @@ export const EIP8056_INTERFACES = [
     name: "IScaledUIAmount",
     id: SCALED_UI_AMOUNT_INTERFACE_ID,
     type: "MUST" as const,
-    label: "核心接口",
+    label: "Core Interface",
     description: "EIP-8056 core — uiMultiplier()",
   },
   {
@@ -102,7 +102,7 @@ export const EIP8056_INTERFACES = [
     name: "IERC8056Scheduled",
     id: ERC8056_SCHEDULED_INTERFACE_ID,
     type: "EXTENSION" as const,
-    label: "BSC 扩展",
-    description: "BSC extension (非 EIP-8056 标准) — pendingMultiplier(), hasPendingMultiplier()",
+    label: "BSC Extension",
+    description: "BSC extension (not part of EIP-8056) — pendingMultiplier(), hasPendingMultiplier()",
   },
 ] as const;

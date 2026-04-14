@@ -38,11 +38,12 @@ import {
   Search,
   Clock,
 } from "lucide-react";
-import { isAddress } from "viem";
+import { isAddress, parseEventLogs, formatUnits } from "viem";
 import {
   EIP8056_INTERFACES,
   ERC8056_SCHEDULED_INTERFACE_ID,
 } from "./interfaceId";
+import { ERC8056_ABI } from "./abi";
 
 const DEFAULT_TOKEN_ADDRESS = "0xB9d96f9579c9E38E24f4a4f9b5AD807f19b3a62e";
 
@@ -170,10 +171,21 @@ export function Eip8056Portal() {
   const [transferRecipient, setTransferRecipient] = useState("");
   const [transferUiAmount, setTransferUiAmount] = useState("");
 
-  // Scheduled extension query states
+  // Scheduled extension query states (BSC extension)
   const [hasPendingResult, setHasPendingResult] = useState<boolean | null>(null);
   const [pendingResult, setPendingResult] = useState<{multiplier: string, effectiveAt: number} | null>(null);
   const [queryLoading, setQueryLoading] = useState<'hasPending' | 'pending' | null>(null);
+
+  // EIP-8056 standard pending multiplier state
+  const [eip8056PendingResult, setEip8056PendingResult] = useState<{ newMultiplier: string; effectiveAt: number } | null>(null);
+  const [eip8056QueryLoading, setEip8056QueryLoading] = useState(false);
+
+  // Interface detection state
+  const [interfaceDetectionResults, setInterfaceDetectionResults] = useState<Record<string, boolean | null>>({});
+  const [interfaceDetecting, setInterfaceDetecting] = useState(false);
+
+  // Transfer result state
+  const [transferResult, setTransferResult] = useState<{ hash: string; rawAmount: string; uiAmount: string } | null>(null);
 
   const publicClient = usePublicClient();
 
@@ -206,9 +218,30 @@ export function Eip8056Portal() {
 
   const handleTransfer = async () => {
     if (!transferRecipient || !transferUiAmount) return;
+    setTransferResult(null);
     try {
-      await transfer(transferRecipient, transferUiAmount);
-      alert(`✅ Transfer successful!`);
+      const hash = await transfer(transferRecipient, transferUiAmount);
+      // Parse TransferWithUIAmount event from receipt
+      if (publicClient) {
+        try {
+          const receipt = await publicClient.getTransactionReceipt({ hash: hash as `0x${string}` });
+          const logs = parseEventLogs({
+            abi: ERC8056_ABI,
+            eventName: 'TransferWithUIAmount',
+            logs: receipt.logs,
+          });
+          if (logs.length > 0 && tokenData) {
+            const { amount, uiAmount } = logs[0].args as { amount: bigint; uiAmount: bigint };
+            setTransferResult({
+              hash,
+              rawAmount: formatUnits(amount, tokenData.decimals),
+              uiAmount: formatUnits(uiAmount, tokenData.decimals),
+            });
+          }
+        } catch {
+          // Event parsing failed — just show success
+        }
+      }
       setTransferRecipient("");
       setTransferUiAmount("");
     } catch (err: any) {
@@ -291,6 +324,56 @@ export function Eip8056Portal() {
     } finally {
       setQueryLoading(null);
     }
+  };
+
+  // Query EIP-8056 standard newUIMultiplier + effectiveAt
+  const queryEip8056Pending = async () => {
+    if (!publicClient || !contractAddress) return;
+    setEip8056QueryLoading(true);
+    try {
+      const [newMult, effectiveAt] = await Promise.all([
+        publicClient.readContract({
+          address: contractAddress as Address,
+          abi: ERC8056_ABI,
+          functionName: 'newUIMultiplier',
+        }),
+        publicClient.readContract({
+          address: contractAddress as Address,
+          abi: ERC8056_ABI,
+          functionName: 'effectiveAt',
+        }),
+      ]);
+      setEip8056PendingResult({
+        newMultiplier: formatUnits(newMult as bigint, 18),
+        effectiveAt: Number(effectiveAt as bigint),
+      });
+    } catch {
+      setEip8056PendingResult(null);
+    } finally {
+      setEip8056QueryLoading(false);
+    }
+  };
+
+  // Query all 5 supportsInterface
+  const queryAllInterfaces = async () => {
+    if (!publicClient || !contractAddress) return;
+    setInterfaceDetecting(true);
+    const results: Record<string, boolean | null> = {};
+    for (const iface of EIP8056_INTERFACES) {
+      try {
+        const result = await publicClient.readContract({
+          address: contractAddress as Address,
+          abi: ERC8056_ABI,
+          functionName: 'supportsInterface',
+          args: [iface.id],
+        });
+        results[iface.id] = result as boolean;
+      } catch {
+        results[iface.id] = null;
+      }
+    }
+    setInterfaceDetectionResults(results);
+    setInterfaceDetecting(false);
   };
 
   // Get BscScan URL based on current chain
@@ -899,44 +982,48 @@ contract MyToken is ERC8056Base, Ownable {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <div className="text-sm font-medium text-yellow-700 mb-2">
-                        Key Difference from Standard ERC20:
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium text-yellow-700">
+                          Live Interface Detection via ERC-165 <code className="bg-yellow-100 px-1 rounded text-xs">supportsInterface(bytes4)</code>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={queryAllInterfaces}
+                          disabled={interfaceDetecting}
+                          className="h-7 text-xs"
+                        >
+                          {interfaceDetecting ? (
+                            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Search className="w-3 h-3 mr-1" />
+                          )}
+                          Detect
+                        </Button>
                       </div>
-                      <ul className="text-sm text-yellow-600 space-y-1 list-disc list-inside">
-                        {EIP8056_INTERFACES.map((iface) => (
-                          <li key={iface.name}>
-                            <code className="bg-yellow-100 px-1 rounded">supportsInterface</code>{" "}
-                            <code className="bg-blue-100 px-1 rounded font-mono">{iface.id}</code>{" "}
-                            → <span className="font-medium">{iface.name}</span>{" "}
-                            <span className={`text-xs px-1 rounded ${
-                              iface.type === "MUST" ? "bg-red-100 text-red-700" :
-                              iface.type === "REQUIRED" ? "bg-orange-100 text-orange-700" :
-                              iface.type === "OPTIONAL" ? "bg-green-100 text-green-700" :
-                              "bg-purple-100 text-purple-700"
-                            }`}>{iface.type}</span>
-                          </li>
-                        ))}
-                        <li>
-                          Get UI balance:{" "}
-                          <code className="bg-yellow-100 px-1 rounded">
-                            balanceOfUI(address)
-                          </code>{" "}
-                          - scaled amount for display
-                        </li>
-                        <li>
-                          Get raw balance:{" "}
-                          <code className="bg-yellow-100 px-1 rounded">
-                            balanceOf(address)
-                          </code>{" "}
-                          - actual on-chain balance
-                        </li>
-                        <li>
-                          Get multiplier:{" "}
-                          <code className="bg-yellow-100 px-1 rounded">
-                            uiMultiplier()
-                          </code>
-                        </li>
-                      </ul>
+                      <div className="space-y-2">
+                        {EIP8056_INTERFACES.map((iface) => {
+                          const result = interfaceDetectionResults[iface.id];
+                          const typeBadge = iface.type === "MUST" ? "bg-red-100 text-red-700" :
+                            iface.type === "REQUIRED" ? "bg-orange-100 text-orange-700" :
+                            iface.type === "OPTIONAL" ? "bg-green-100 text-green-700" :
+                            "bg-purple-100 text-purple-700";
+                          return (
+                            <div key={iface.id} className="flex items-center justify-between bg-white rounded px-3 py-2 border border-yellow-100">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${typeBadge}`}>{iface.type}</span>
+                                <span className="font-mono text-xs text-slate-700 truncate">{iface.name}</span>
+                                <span className="font-mono text-xs text-slate-400 shrink-0">{iface.id}</span>
+                              </div>
+                              <div className="ml-2 shrink-0">
+                                {result === true ? <span className="text-emerald-600 text-sm font-medium">✅ Supported</span> :
+                                 result === false ? <span className="text-red-500 text-sm font-medium">❌ No</span> :
+                                 <span className="text-slate-300 text-xs">—</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
@@ -1144,6 +1231,33 @@ console.log(\`Supports Scheduled: \${balance.supportsScheduled}\`)`}
                             Execute Transfer
                           </Button>
                         </div>
+                        {/* TransferWithUIAmount event result */}
+                        {transferResult && (
+                          <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                            <p className="text-xs font-semibold text-emerald-700 mb-2">
+                              TransferWithUIAmount Event
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <span className="text-slate-500">Raw amount:</span>
+                                <span className="ml-1 font-mono text-slate-700">{Number(transferResult.rawAmount).toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-emerald-600">UI amount:</span>
+                                <span className="ml-1 font-mono font-semibold text-emerald-700">{Number(transferResult.uiAmount).toLocaleString()}</span>
+                              </div>
+                            </div>
+                            <a
+                              href={`${chainId === 56 ? 'https://bscscan.com' : 'https://testnet.bscscan.com'}/tx/${transferResult.hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 flex items-center gap-1 text-xs text-amber-600 hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              {transferResult.hash.slice(0, 20)}...
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1216,6 +1330,58 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* EIP-8056 Standard: newUIMultiplier() + effectiveAt() */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-500" />
+                          <h4 className="text-sm font-medium text-slate-700">
+                            EIP-8056 Standard — Pending Multiplier
+                          </h4>
+                        </div>
+                        <span className="text-xs text-slate-400 font-mono">IScaledUIAmountNewUIMultiplier</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-3">
+                        EIP-8056 required extension: individual getters for the scheduled multiplier value and its effective timestamp.
+                      </p>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="p-3 bg-white rounded border border-slate-200">
+                          <p className="text-xs text-slate-500 mb-2">Scheduled next multiplier value</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={queryEip8056Pending}
+                            disabled={eip8056QueryLoading}
+                            className="w-full h-8 text-xs font-mono"
+                          >
+                            {eip8056QueryLoading ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Search className="w-3 h-3 mr-1" />}
+                            newUIMultiplier() + effectiveAt()
+                          </Button>
+                          {eip8056PendingResult !== null && (
+                            <div className="mt-3 space-y-1.5 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">newUIMultiplier:</span>
+                                <span className="font-mono font-semibold text-yellow-700">{Number(eip8056PendingResult.newMultiplier).toFixed(4)}×</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">effectiveAt:</span>
+                                <span className="text-slate-600 font-mono">
+                                  {eip8056PendingResult.effectiveAt === 0 || eip8056PendingResult.effectiveAt >= 2**53
+                                    ? "—"
+                                    : new Date(eip8056PendingResult.effectiveAt * 1000).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3 bg-yellow-50 rounded border border-yellow-200 text-xs text-yellow-800 space-y-1">
+                          <p className="font-medium">Note</p>
+                          <p>These getters always return the <em>last scheduled</em> value even after it has already taken effect.</p>
+                          <p>The BSC extension below provides <code className="bg-yellow-100 px-0.5 rounded">hasPendingMultiplier()</code> to distinguish active vs pending states.</p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Multiplier Status - IERC8056Scheduled extension */}
                     {tokenData.supportsScheduled && (
                       <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
@@ -1522,6 +1688,27 @@ if (hasPending) {
                           </Button>
                         </CardContent>
                       </Card>
+                    </div>
+
+                    {/* Breaking change notice */}
+                    <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                        <div className="text-sm text-red-800">
+                          <p className="font-semibold mb-1">Breaking Change: UIMultiplierUpdated Event (3 params)</p>
+                          <p className="text-xs text-red-700 mb-2">
+                            The event signature was changed per EIP-8056 spec alignment. The old 4-param version included <code className="bg-red-100 px-1 rounded">setAtTimestamp</code> which was removed.
+                          </p>
+                          <div className="grid grid-cols-1 gap-1 font-mono text-xs">
+                            <div className="bg-red-100 px-2 py-1 rounded line-through opacity-60">
+                              UIMultiplierUpdated(uint256 old, uint256 new, uint256 setAt, uint256 effectiveAt)
+                            </div>
+                            <div className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded">
+                              UIMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier, uint256 effectiveAtTimestamp)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <ExpandableSection
