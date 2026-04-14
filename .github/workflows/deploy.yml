@@ -25,17 +25,17 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        working-directory: demo
+        working-directory: playground
         run: bun install
 
       - name: Build
-        working-directory: demo
+        working-directory: playground
         run: bun run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: demo/dist
+          path: playground/dist
 
   deploy:
     environment:

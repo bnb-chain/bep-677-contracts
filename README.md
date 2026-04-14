@@ -8,7 +8,7 @@ Reference implementation of [BEP-677](https://github.com/bnb-chain/beps/blob/mas
 
 #### BSC Testnet
 
-- **ScaledUIToken**: `0xB9d96f9579c9E38E24f4a4f9b5AD807f19b3a62e`
+- **ScaledUIToken**: `0xc28129Cd9A5ABe9eE14874BF0942150Fa24767A9`
 
 ## About
 
@@ -27,16 +27,15 @@ contract MyToken is ScaledUIToken {
 ## Development
 
 ```bash
-cd contracts
 npm install
 npx hardhat compile
 npx hardhat test
 ```
 
-## Demo
+## Playground
 
 ```bash
-cd demo
+cd playground
 bun install
 bun run dev
 ```

@@ -37,7 +37,7 @@ module.exports = {
     apiKey: process.env.BSCSCAN_API_KEY || "",
   },
   paths: {
-    sources: "./src",
+    sources: "./contracts",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",

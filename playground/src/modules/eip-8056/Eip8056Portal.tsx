@@ -45,7 +45,7 @@ import {
 } from "./interfaceId";
 import { ERC8056_ABI } from "./abi";
 
-const DEFAULT_TOKEN_ADDRESS = "0xB9d96f9579c9E38E24f4a4f9b5AD807f19b3a62e";
+const DEFAULT_TOKEN_ADDRESS = "0xc28129Cd9A5ABe9eE14874BF0942150Fa24767A9";
 
 // ============================================================================
 // Reusable Components
@@ -409,7 +409,7 @@ export function Eip8056Portal() {
               <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
-              <span>EIP-8056: Scaled UI Amount Extension</span>
+              <span>BEP-677: EIP-8056 Scaled UI Amount</span>
             </CardTitle>
             <CardDescription className="text-base mt-2">
               Apply an updatable multiplier to UI-displayed balances without
@@ -463,6 +463,16 @@ export function Eip8056Portal() {
                 <p className="font-medium">
                   📖 Learn more:{" "}
                   <a
+                    href="https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP-677.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-yellow-600 hover:text-yellow-800 underline inline-flex items-center gap-1"
+                  >
+                    BEP-677
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  {" · "}
+                  <a
                     href="https://eips.ethereum.org/EIPS/eip-8056"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -482,10 +492,10 @@ export function Eip8056Portal() {
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
               <Search className="w-6 h-6 text-slate-700" />
-              How to View an EIP-8056 Token
+              How to View a ERC-8056 Token
             </CardTitle>
             <CardDescription>
-              Choose one of the following options to explore an EIP-8056 token
+              Choose one of the following options to explore a BEP-677 / EIP-8056 token
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -502,7 +512,7 @@ export function Eip8056Portal() {
                   <p className="text-sm text-slate-600 mb-4">
                     Inherit from{" "}
                     <a
-                      href="https://github.com/bnb-chain/eip-8056-contracts/blob/main/contracts/src/ERC8056Base.sol"
+                      href="https://github.com/bnb-chain/bep-677-contracts/blob/main/contracts/ERC8056Base.sol"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-emerald-600 hover:text-emerald-700 underline inline-flex items-center gap-0.5"
@@ -563,7 +573,7 @@ pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 // Import from GitHub (for Remix) or use npm package
-import {ERC8056Base} from "https://github.com/bnb-chain/eip-8056-contracts/blob/main/contracts/src/ERC8056Base.sol";
+import {ERC8056Base} from "https://github.com/bnb-chain/bep-677-contracts/blob/main/contracts/ERC8056Base.sol";
 
 contract MyToken is ERC8056Base, Ownable {
     constructor(
