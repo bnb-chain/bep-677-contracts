@@ -9,6 +9,8 @@ on:
     types: [opened, assigned]
   pull_request_review:
     types: [submitted]
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
 
 jobs:
   claude:
@@ -35,7 +37,63 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Restrict Claude to safe read/compile/test operations only.
-          # Deployment commands are intentionally excluded to prevent accidental contract deploys.
+          prompt: |
+            This is bep-677-contracts, a BNB Chain reference implementation of EIP-8056 (Scaled UI Amount).
+            Solidity 0.8.20, Hardhat, OpenZeppelin v5.
+            Core: contracts/ERC8056Base.sol (multiplier math via mulDiv, scheduled changes with overwrite).
+            Token: contracts/ERC8056Token.sol (Ownable, mints all supply to owner).
+            Frontend demo: playground/ (Vite + React + Bun).
+            NEVER run deploy scripts. Only compile, test, and lint.
           claude_args: |
             --allowedTools "Bash(npx hardhat compile),Bash(npx hardhat test),Bash(npm run lint:*)"
+
+  pr-review:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: PR Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this PR for bep-677-contracts (EIP-8056 Scaled UI Amount on BNB Chain).
+
+            1. **Smart Contract Security**
+               - Multiplier math: mulDiv overflow with extreme values, precision loss in fromUIAmount
+               - Scheduled change state machine: pending→active transitions, overwrite correctness
+               - Access control: _authorizeMultiplierUpdate gating
+
+            2. **ERC20 Compatibility**
+               - _update override must call super first, then emit TransferWithUIAmount
+               - supportsInterface must cover all implemented interface IDs
+               - No breaking changes to standard ERC20 behavior
+
+            3. **Code Quality**
+               - Solidity best practices, gas optimization
+               - ABI files in abis/ stay in sync with contract signatures
+               - OpenZeppelin v5 patterns used correctly
+
+            4. **Testing**
+               - Adequate coverage for multiplier math edge cases
+               - Scheduled change and overwrite scenarios tested
+
+            5. **Frontend (if playground/ changed)**
+               - Contract ABI consistency, wallet connection logic
+
+            Provide inline comments for specific issues.
+            Use a top-level summary for overall assessment.
