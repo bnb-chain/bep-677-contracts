@@ -12,7 +12,7 @@ Reference implementation of [BEP-677](https://github.com/bnb-chain/beps/blob/mas
 
 ## About
 
-EIP-8056 introduces a `uiAmountMultiplier` to ERC-20 tokens — a scaling factor that wallets use to display balances without changing on-chain raw amounts. This enables stock-split-style redenominations, RWA adjustments, and reverse splits purely at the display layer.
+EIP-8056 introduces a `uiAmountMultiplier` to BEP-20 tokens — a scaling factor that wallets use to display balances without changing on-chain raw amounts. This enables stock-split-style redenominations, RWA adjustments, and reverse splits purely at the display layer.
 
 ## Quickstart
 
