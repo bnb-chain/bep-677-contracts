@@ -10,7 +10,7 @@ on:
   pull_request_review:
     types: [submitted]
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    types: [opened, ready_for_review]
 
 jobs:
   claude:
@@ -27,13 +27,13 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 1
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@39431830520a7ae6c0c572f11a7707e7043325e3 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
@@ -44,7 +44,7 @@ jobs:
             Token: contracts/ERC8056Token.sol (Ownable, mints all supply to owner).
             Frontend demo: playground/ (Vite + React + Bun).
             NEVER run deploy scripts. Only compile, test, and lint.
-          claude_args: |
+          claude_args: |-
             --allowedTools "Bash(npx hardhat compile),Bash(npx hardhat test),Bash(npm run lint:*)"
 
   pr-review:
@@ -58,12 +58,12 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 1
 
       - name: PR Review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@39431830520a7ae6c0c572f11a7707e7043325e3 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
