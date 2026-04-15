@@ -1,4 +1,4 @@
-{
+o on {
   "name": "bep-677-contracts",
   "version": "1.0.0",
   "description": "BEP-677: EIP-8056 Scaled UI Amount - Reference Implementation",
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
     "hardhat": "^2.22.0"
   },
   "dependencies": {
