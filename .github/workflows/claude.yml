@@ -24,7 +24,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -34,10 +34,9 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
-        env:
-          OVERRIDE_GITHUB_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           prompt: |
             This is bep-677-contracts, a BNB Chain reference implementation of EIP-8056 (Scaled UI Amount).
             Solidity 0.8.20, Hardhat, OpenZeppelin v5.
@@ -64,10 +63,9 @@ jobs:
 
       - name: PR Review
         uses: anthropics/claude-code-action@v1
-        env:
-          OVERRIDE_GITHUB_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
