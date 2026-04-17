@@ -81,7 +81,6 @@ abstract contract ERC8056BaseUpgradeable is
      */
     uint256 internal constant MULTIPLIER_DECIMALS = 1e18;
 
-    /// @custom:storage-location erc7201:erc8056base.storage
     uint256 private _uiMultiplier;
     uint256 private _nextUiMultiplier;
     uint256 private _nextUiMultiplierEffectiveAt;
@@ -95,7 +94,7 @@ abstract contract ERC8056BaseUpgradeable is
         internal
         onlyInitializing
     {
-        __ERC20_init_unchained(name_, symbol_);
+        __ERC20_init(name_, symbol_);
         __erc8056Base_init_unchained();
     }
 
