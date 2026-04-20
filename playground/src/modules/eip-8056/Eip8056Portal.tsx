@@ -46,7 +46,7 @@ import {
 import { ERC8056_ABI } from "./abi";
 
 // TODO: update to BeaconProxy address after redeployment
-const DEFAULT_TOKEN_ADDRESS = "";
+const DEFAULT_TOKEN_ADDRESS = "0x101ba6E119035C3a037BE594F3454032fDbfa65e";
 
 // ============================================================================
 // Reusable Components
@@ -572,23 +572,28 @@ export function Eip8056Portal() {
                             code={`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC8056BaseUpgradeable} from "./ERC8056BaseUpgradeable.sol";
 
-// ERC8056BaseUpgradeable is already concrete and owner-gated.
-// Extend it only if you need extra storage or logic.
-contract MyToken is ERC8056BaseUpgradeable {
+// Inherit ERC8056BaseUpgradeable to add custom logic or access control.
+// For a ready-to-deploy token with no extra logic, use ERC8056TokenUpgradeable.
+contract MyToken is ERC8056BaseUpgradeable, OwnableUpgradeable {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() { _disableInitializers(); }
+
     function initialize(
         string memory name,
         string memory symbol,
         uint256 initialSupply,
         address initialOwner
-    ) public override initializer {
-        __ERC20_init(name, symbol);
-        __erc8056Base_init_unchained();
+    ) public initializer {
+        __erc8056Base_init(name, symbol);
         __Ownable_init(initialOwner);
         _mint(initialOwner, initialSupply * 10 ** decimals());
         // your additional init logic here
     }
+
+    function _authorizeMultiplierUpdate() internal override onlyOwner {}
 }`}
                           />
                         </ExpandableSection>
@@ -610,8 +615,8 @@ contract MyToken is ERC8056BaseUpgradeable {
                             <div className="p-3 bg-slate-50 rounded border border-slate-200">
                               <p className="text-xs font-medium text-slate-700 mb-1">Contract Details:</p>
                               <div className="text-xs text-slate-500 space-y-0.5">
-                                <p>Contract: <code className="bg-slate-100 px-1 rounded">ERC8056BaseUpgradeable</code></p>
-                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/ERC8056BaseUpgradeable.sol</code></p>
+                                <p>Contract: <code className="bg-slate-100 px-1 rounded">ERC8056TokenUpgradeable</code></p>
+                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/ERC8056TokenUpgradeable.sol</code></p>
                                 <p>Init Parameters: <code className="bg-slate-100 px-1 rounded">name, symbol, initialSupply, initialOwner</code></p>
                                 <p>Proxy Type: <code className="bg-slate-100 px-1 rounded">Beacon</code></p>
                               </div>

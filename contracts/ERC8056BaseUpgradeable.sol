@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -13,13 +12,12 @@ import {IScaledUIAmountBalances} from "./IScaledUIAmountBalances.sol";
 import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
 
 /**
- * @dev Concrete upgradeable EIP-8056 token, designed for BeaconProxy deployments.
+ * @dev Abstract upgradeable base contract for EIP-8056 Scaled UI Amount extension.
  * @notice See https://eips.ethereum.org/EIPS/eip-8056 for the full specification.
  *
- * This is the **upgradeable** version of ERC8056Base. Deploy it behind an
- * OpenZeppelin BeaconProxy using `deployBeacon` + `deployBeaconProxy` from
- * the hardhat-upgrades plugin, or via the repo's
- * `npm run deploy:upgradeable:*` scripts.
+ * This is the **upgradeable** version of ERC8056Base, designed for BeaconProxy
+ * deployments. It uses OpenZeppelin upgradeable contracts and follows the
+ * standard `__init` / `__init_unchained` initialization pattern.
  *
  * This implementation provides a UI multiplier mechanism that allows token
  * amounts to be displayed differently from their actual on-chain values.
@@ -30,6 +28,30 @@ import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
  *
  * Multiplier changes can be scheduled for a future timestamp, allowing
  * users and integrators to prepare for upcoming changes.
+ *
+ * To use this contract, inherit from it and implement {_authorizeMultiplierUpdate}
+ * to define who can update the multiplier. Optionally override
+ * {_validateMultiplier} and {_beforeMultiplierUpdate} for additional checks.
+ *
+ * Example:
+ * ```solidity
+ * contract MyToken is ERC8056BaseUpgradeable, OwnableUpgradeable {
+ *     /// @custom:oz-upgrades-unsafe-allow constructor
+ *     constructor() { _disableInitializers(); }
+ *
+ *     function initialize(string memory name_, string memory symbol_, uint256 supply, address owner)
+ *         public initializer
+ *     {
+ *         __erc8056Base_init(name_, symbol_);
+ *         __Ownable_init(owner);
+ *         _mint(owner, supply * 10 ** decimals());
+ *     }
+ *
+ *     function _authorizeMultiplierUpdate() internal override onlyOwner {}
+ * }
+ * ```
+ *
+ * See {ERC8056TokenUpgradeable} for a ready-to-deploy concrete implementation.
  *
  * ## Implemented Interfaces
  *
@@ -53,12 +75,11 @@ import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
  *    - When overwrites occur, {IERC8056Scheduled-UIMultiplierChangeOverwritten} is emitted
  *
  * 3. Access Control:
- *    - Only the contract owner (set via `initialize`) may call {setUIMultiplier}.
- *    - Consider using a multisig or timelock as the owner for production deployments.
+ *    - The {_authorizeMultiplierUpdate} function MUST be overridden with proper access control
+ *    - Consider using a multisig or timelock contract for production deployments
  */
-contract ERC8056BaseUpgradeable is
+abstract contract ERC8056BaseUpgradeable is
     ERC20Upgradeable,
-    OwnableUpgradeable,
     IScaledUIAmount,
     IScaledUIAmountNewUIMultiplier,
     IScaledUIAmountConversion,
@@ -77,37 +98,10 @@ contract ERC8056BaseUpgradeable is
     uint256 private _nextUiMultiplier;
     uint256 private _nextUiMultiplierEffectiveAt;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     /**
-     * @notice Initializes the token. Called once by the proxy on first deployment.
-     * @param name_          Token name.
-     * @param symbol_        Token symbol.
-     * @param initialSupply  Initial supply in whole tokens (scaled by decimals internally).
-     * @param initialOwner   Address that receives the initial supply and becomes owner.
-     */
-    function initialize(
-        string memory name_,
-        string memory symbol_,
-        uint256 initialSupply,
-        address initialOwner
-    ) public initializer {
-        __ERC20_init(name_, symbol_);
-        __erc8056Base_init_unchained();
-        __Ownable_init(initialOwner);
-        _mint(initialOwner, initialSupply * 10 ** decimals());
-    }
-
-    /**
-     * @notice Internal initialization helper (for use by subclasses only).
-     *
-     * Subclasses that add their own storage must call this from their own
-     * `initialize` function alongside any additional parent inits.
-     *
-     * @custom:oz-upgrades-unsafe-allow missing-initializer-call
+     * @notice Internal initialization function for ERC8056BaseUpgradeable
+     * @param  name_   The initial name of the token
+     * @param  symbol_ The initial symbol of the token
      */
     function __erc8056Base_init(string memory name_, string memory symbol_)
         internal
@@ -225,14 +219,22 @@ contract ERC8056BaseUpgradeable is
     }
 
     /**
-     * @dev Restricts multiplier updates to the contract owner.
+     * @dev Hook for access control. Must be overridden in derived contracts.
      *
-     * Override this function to use a different access-control scheme, e.g.:
+     * This function should revert if `msg.sender` is not authorized to
+     * update the multiplier.
+     *
+     * Example using OwnableUpgradeable:
+     * ```solidity
+     * function _authorizeMultiplierUpdate() internal override onlyOwner {}
+     * ```
+     *
+     * Example using AccessControlUpgradeable:
      * ```solidity
      * function _authorizeMultiplierUpdate() internal override onlyRole(ADMIN_ROLE) {}
      * ```
      */
-    function _authorizeMultiplierUpdate() internal virtual onlyOwner {}
+    function _authorizeMultiplierUpdate() internal virtual;
 
     /**
      * @dev Hook for validating multiplier values.

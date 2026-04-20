@@ -21,7 +21,8 @@ npx hardhat node         # start local node
 - `contracts/` — Solidity sources
   - `ERC8056Base.sol` — non-upgradeable abstract base (deprecated, reference only)
   - `ERC8056Token.sol` — concrete non-upgradeable token (`ScaledUIToken`, deprecated)
-  - `ERC8056BaseUpgradeable.sol` — concrete Beacon-upgradeable token (`ERC8056BaseUpgradeable`, recommended)
+  - `ERC8056BaseUpgradeable.sol` — abstract Beacon-upgradeable base (inherit to extend)
+  - `ERC8056TokenUpgradeable.sol` — concrete Beacon-upgradeable token (recommended, deploy directly)
   - `contracts/mocks/` — test mock contracts (not for production)
   - interfaces: `IScaledUIAmount*.sol`, `IERC8056Scheduled.sol`
 - `abis/` — pre-built ABI JSON files
@@ -39,7 +40,7 @@ npm run deploy:local      # local Hardhat node
 npm run deploy:testnet    # BSC testnet (chainId 97)
 npm run deploy:mainnet    # BSC mainnet (chainId 56) — PRODUCTION
 
-# Upgradeable Beacon proxy (ERC8056BaseUpgradeable — recommended)
+# Upgradeable Beacon proxy (ERC8056TokenUpgradeable — recommended)
 npm run deploy:upgradeable:local
 npm run deploy:upgradeable:testnet
 npm run deploy:upgradeable:mainnet      # PRODUCTION

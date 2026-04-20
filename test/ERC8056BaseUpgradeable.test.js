@@ -9,7 +9,7 @@ describe("ERC8056BaseUpgradeable", function () {
 
   beforeEach(async function () {
     [owner, other] = await ethers.getSigners();
-    const Factory = await ethers.getContractFactory("ERC8056BaseUpgradeable");
+    const Factory = await ethers.getContractFactory("ERC8056TokenUpgradeable");
     beacon = await upgrades.deployBeacon(Factory);
     await beacon.waitForDeployment();
     proxy = await upgrades.deployBeaconProxy(
@@ -37,7 +37,7 @@ describe("ERC8056BaseUpgradeable", function () {
     });
 
     it("implementation contract reverts initialize (_disableInitializers)", async function () {
-      const Factory = await ethers.getContractFactory("ERC8056BaseUpgradeable");
+      const Factory = await ethers.getContractFactory("ERC8056TokenUpgradeable");
       const impl = await Factory.deploy();
       await impl.waitForDeployment();
       await expect(

@@ -40,7 +40,8 @@ jobs:
           prompt: |
             This is bep-677-contracts, a BNB Chain reference implementation of EIP-8056 (Scaled UI Amount).
             Solidity 0.8.24, Hardhat, OpenZeppelin v5.
-            Primary token: contracts/ERC8056BaseUpgradeable.sol (ERC8056BaseUpgradeable, Beacon-upgradeable, multiplier math, scheduled changes).
+            Abstract base: contracts/ERC8056BaseUpgradeable.sol (ERC8056BaseUpgradeable, inherit to extend).
+            Concrete token: contracts/ERC8056TokenUpgradeable.sol (ERC8056TokenUpgradeable, Beacon-upgradeable, deploy directly).
             Deprecated (reference only): contracts/ERC8056Base.sol, contracts/ERC8056Token.sol.
             Tests: test/ (Hardhat + OZ upgrades plugin, 17 tests).
             Frontend demo: playground/ (Vite + React + Bun).

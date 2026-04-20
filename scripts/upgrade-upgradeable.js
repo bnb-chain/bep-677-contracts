@@ -24,7 +24,7 @@ async function main() {
   console.log("Upgrading with account:", deployer.address);
   console.log("Beacon address:", beaconAddress);
 
-  const Factory = await hre.ethers.getContractFactory("ERC8056BaseUpgradeable");
+  const Factory = await hre.ethers.getContractFactory("ERC8056TokenUpgradeable");
 
   // Validate storage layout before sending any transaction
   console.log("\nValidating storage layout compatibility...");

@@ -39,7 +39,7 @@ async function main() {
   console.log("  Initial Owner:", initialOwner);
   console.log("  Proxy type: Beacon");
 
-  const Factory = await hre.ethers.getContractFactory("ERC8056BaseUpgradeable");
+  const Factory = await hre.ethers.getContractFactory("ERC8056TokenUpgradeable");
 
   // Deploy the beacon (holds the implementation address)
   const beacon = await hre.upgrades.deployBeacon(Factory);
@@ -56,7 +56,7 @@ async function main() {
   await proxy.waitForDeployment();
   const proxyAddress = await proxy.getAddress();
 
-  console.log("\n✅ ERC8056BaseUpgradeable beacon deployed to:", beaconAddress);
+  console.log("\n✅ ERC8056TokenUpgradeable beacon deployed to:", beaconAddress);
   console.log("   Implementation address:", implAddress);
   console.log("✅ BeaconProxy (token address) deployed to:", proxyAddress);
 
