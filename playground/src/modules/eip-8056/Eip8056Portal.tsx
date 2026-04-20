@@ -521,7 +521,7 @@ export function Eip8056Portal() {
                       ERC8056BaseUpgradeable.sol
                       <ExternalLink className="w-3 h-3" />
                     </a>{" "}
-                    to create an upgradeable EIP-8056 token using the UUPS proxy pattern.
+                    to create an upgradeable EIP-8056 token using the Beacon proxy pattern.
                   </p>
                   <div className="space-y-4">
                     {/* Inherit ERC8056Base */}

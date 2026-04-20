@@ -36,9 +36,14 @@ async function main() {
 
   console.log("\nSubmitting upgrade transaction...");
   const beacon = await hre.upgrades.upgradeBeacon(beaconAddress, Factory);
-  const upgradeTx = beacon.deploymentTransaction ? beacon.deploymentTransaction() : null;
+  // OZ hardhat-upgrades attaches the upgradeTo() tx to `deployTransaction`.
+  // `deploymentTransaction()` (ethers method) is always null for upgradeBeacon.
+  const upgradeTx = beacon.deployTransaction ?? null;
   if (upgradeTx) {
+    console.log("Upgrade tx:", upgradeTx.hash);
     await upgradeTx.wait(1);
+  } else {
+    console.log("⚠️  Could not capture upgrade tx; confirmation wait skipped.");
   }
 
   const newImpl = await hre.upgrades.beacon.getImplementationAddress(beaconAddress);

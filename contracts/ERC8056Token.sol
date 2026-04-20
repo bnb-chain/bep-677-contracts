@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -51,7 +51,7 @@ import {ERC8056Base} from "./ERC8056Base.sol";
  *    }
  *    ```
  *
- * @custom:deprecated Prefer {ScaledUITokenUpgradeable} for new deployments. This non-upgradeable
+ * @custom:deprecated Prefer {ERC8056TokenUpgradeable} for new deployments. This non-upgradeable
  * variant is retained as a reference implementation. Existing deployed contracts are unaffected.
  */
 contract ScaledUIToken is ERC8056Base, Ownable {

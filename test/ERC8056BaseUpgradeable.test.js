@@ -179,4 +179,48 @@ describe("ERC8056BaseUpgradeable", function () {
       await upgrades.validateUpgrade(await beacon.getAddress(), V2Factory, { kind: "beacon" });
     });
   });
+
+  describe("supportsInterface", function () {
+    const INTERFACE_IDS = {
+      IERC165: "0x01ffc9a7",
+      IERC20: "0x36372b07",
+      IScaledUIAmount: "0xa60bf13d",
+      IScaledUIAmountNewUIMultiplier: "0x4bd27648",
+      IScaledUIAmountConversion: "0x57854fc3",
+      IScaledUIAmountBalances: "0xd890fd71",
+      IERC8056Scheduled: "0xeb0093dd",
+    };
+
+    for (const [name, id] of Object.entries(INTERFACE_IDS)) {
+      it(`returns true for ${name} (${id})`, async function () {
+        expect(await proxy.supportsInterface(id)).to.equal(true);
+      });
+    }
+
+    it("returns false for a random interface id", async function () {
+      expect(await proxy.supportsInterface("0xdeadbeef")).to.equal(false);
+    });
+  });
+
+  describe("TransferWithUIAmount event", function () {
+    it("emits on transfer with raw=ui at 1x multiplier", async function () {
+      const amount = 100n * 10n ** 18n;
+      await expect(proxy.connect(owner).transfer(other.address, amount))
+        .to.emit(proxy, "TransferWithUIAmount")
+        .withArgs(owner.address, other.address, amount, amount);
+    });
+
+    it("emits with scaled uiAmount at 2x multiplier", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const newMult = 2n * MULTIPLIER_DECIMALS;
+      await proxy.setUIMultiplier(newMult, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+
+      const rawAmount = 100n * 10n ** 18n;
+      await expect(proxy.connect(owner).transfer(other.address, rawAmount))
+        .to.emit(proxy, "TransferWithUIAmount")
+        .withArgs(owner.address, other.address, rawAmount, 2n * rawAmount);
+    });
+  });
 });

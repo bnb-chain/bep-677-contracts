@@ -42,4 +42,11 @@ describe("ERC8056Base (via ScaledUIToken)", function () {
       token.connect(other).setUIMultiplier(2n * MULTIPLIER_DECIMALS, block.timestamp + 100)
     ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
   });
+
+  it("reverts with zero multiplier", async function () {
+    const block = await ethers.provider.getBlock("latest");
+    await expect(
+      token.setUIMultiplier(0, block.timestamp + 100)
+    ).to.be.revertedWith("ERC8056: multiplier must be positive");
+  });
 });
