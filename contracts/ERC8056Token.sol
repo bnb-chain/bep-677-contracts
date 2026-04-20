@@ -50,6 +50,9 @@ import {ERC8056Base} from "./ERC8056Base.sol";
  *        require(!hasPendingMultiplier(), "Cannot overwrite pending change");
  *    }
  *    ```
+ *
+ * @custom:deprecated Prefer {ScaledUITokenUpgradeable} for new deployments. This non-upgradeable
+ * variant is retained as a reference implementation. Existing deployed contracts are unaffected.
  */
 contract ScaledUIToken is ERC8056Base, Ownable {
     /**

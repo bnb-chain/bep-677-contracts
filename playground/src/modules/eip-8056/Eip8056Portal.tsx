@@ -45,7 +45,8 @@ import {
 } from "./interfaceId";
 import { ERC8056_ABI } from "./abi";
 
-const DEFAULT_TOKEN_ADDRESS = "0xc28129Cd9A5ABe9eE14874BF0942150Fa24767A9";
+// TODO: update to BeaconProxy address after redeployment
+const DEFAULT_TOKEN_ADDRESS = "";
 
 // ============================================================================
 // Reusable Components
@@ -389,7 +390,7 @@ export function Eip8056Portal() {
     return `${base}/address/${address}${suffix}`;
   };
 
-  const [tokenInput, setTokenInput] = useState(DEFAULT_TOKEN_ADDRESS);
+  const [tokenInput, setTokenInput] = useState<string>(DEFAULT_TOKEN_ADDRESS);
 
   const handleTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -512,15 +513,15 @@ export function Eip8056Portal() {
                   <p className="text-sm text-slate-600 mb-4">
                     Inherit from{" "}
                     <a
-                      href="https://github.com/bnb-chain/bep-677-contracts/blob/main/contracts/ERC8056Base.sol"
+                      href="https://github.com/bnb-chain/bep-677-contracts/blob/main/contracts/ERC8056BaseUpgradeable.sol"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-emerald-600 hover:text-emerald-700 underline inline-flex items-center gap-0.5"
                     >
-                      ERC8056Base.sol
+                      ERC8056BaseUpgradeable.sol
                       <ExternalLink className="w-3 h-3" />
                     </a>{" "}
-                    to create your own EIP-8056 compliant token with customizable hooks.
+                    to create an upgradeable EIP-8056 token using the UUPS proxy pattern.
                   </p>
                   <div className="space-y-4">
                     {/* Inherit ERC8056Base */}
@@ -565,38 +566,29 @@ export function Eip8056Portal() {
                           defaultExpanded={false}
                         >
                           <CodeBlock
-                            label="Inherit ERC8056Base"
+                            label="Extend ERC8056BaseUpgradeable (Beacon)"
                             copyable
                             language="solidity"
                             code={`// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-// Import from GitHub (for Remix) or use npm package
-import {ERC8056Base} from "https://github.com/bnb-chain/bep-677-contracts/blob/main/contracts/ERC8056Base.sol";
+import {ERC8056BaseUpgradeable} from "./ERC8056BaseUpgradeable.sol";
 
-contract MyToken is ERC8056Base, Ownable {
-    constructor(
+// ERC8056BaseUpgradeable is already concrete and owner-gated.
+// Extend it only if you need extra storage or logic.
+contract MyToken is ERC8056BaseUpgradeable {
+    function initialize(
         string memory name,
         string memory symbol,
         uint256 initialSupply,
-        address owner
-    ) ERC20(name, symbol) Ownable(owner) {
-        _mint(owner, initialSupply * 10 ** decimals());
+        address initialOwner
+    ) public override initializer {
+        __ERC20_init(name, symbol);
+        __erc8056Base_init_unchained();
+        __Ownable_init(initialOwner);
+        _mint(initialOwner, initialSupply * 10 ** decimals());
+        // your additional init logic here
     }
-
-    // Required: Access control (recommend multisig/timelock for production)
-    function _authorizeMultiplierUpdate() internal override onlyOwner {}
-
-    // Optional: Set multiplier bounds to prevent overflow/precision loss
-    // function _validateMultiplier(uint256 newMultiplier) internal pure override {
-    //     require(newMultiplier >= 1e15 && newMultiplier <= 1e21, "Out of range");
-    // }
-
-    // Optional: Prevent overwriting pending changes
-    // function _beforeMultiplierUpdate(uint256, uint256) internal view override {
-    //     require(!hasPendingMultiplier(), "Cannot overwrite pending");
-    // }
 }`}
                           />
                         </ExpandableSection>
@@ -609,19 +601,19 @@ contract MyToken is ERC8056Base, Ownable {
                             <div className="text-xs text-slate-600">
                               <p className="font-medium text-slate-700 mb-2">Deployment Steps:</p>
                               <ol className="list-decimal list-inside space-y-1.5 text-slate-500">
-                                <li>Navigate to the <code className="bg-slate-100 px-1 rounded">contracts</code> directory</li>
-                                <li>Install dependencies: <code className="bg-slate-100 px-1 rounded">npm install</code></li>
+                                <li>Clone the repo and install dependencies: <code className="bg-slate-100 px-1 rounded">npm install</code></li>
                                 <li>Configure your <code className="bg-slate-100 px-1 rounded">.env</code> file with your private key and RPC URLs</li>
-                                <li>Deploy to testnet: <code className="bg-slate-100 px-1 rounded">npm run deploy:testnet</code></li>
-                                <li>Copy the deployed contract address and use it below</li>
+                                <li>Deploy to testnet: <code className="bg-slate-100 px-1 rounded">npm run deploy:upgradeable:testnet</code></li>
+                                <li>Copy the <strong>proxy</strong> address from the output and use it below</li>
                               </ol>
-                  </div>
+                            </div>
                             <div className="p-3 bg-slate-50 rounded border border-slate-200">
                               <p className="text-xs font-medium text-slate-700 mb-1">Contract Details:</p>
                               <div className="text-xs text-slate-500 space-y-0.5">
-                                <p>Contract: <code className="bg-slate-100 px-1 rounded">ERC8056Token</code></p>
-                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/src/ERC8056Token.sol</code></p>
-                                <p>Constructor Parameters: <code className="bg-slate-100 px-1 rounded">name, symbol, initialSupply, initialOwner</code></p>
+                                <p>Contract: <code className="bg-slate-100 px-1 rounded">ERC8056BaseUpgradeable</code></p>
+                                <p>Location: <code className="bg-slate-100 px-1 rounded">contracts/ERC8056BaseUpgradeable.sol</code></p>
+                                <p>Init Parameters: <code className="bg-slate-100 px-1 rounded">name, symbol, initialSupply, initialOwner</code></p>
+                                <p>Proxy Type: <code className="bg-slate-100 px-1 rounded">Beacon</code></p>
                               </div>
                             </div>
                           </div>
@@ -637,18 +629,10 @@ contract MyToken is ERC8056Base, Ownable {
                               <ol className="list-decimal list-inside space-y-1.5 text-slate-500">
                                 <li>Open <a href="https://remix.ethereum.org" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">Remix IDE</a></li>
                                 <li>Create a new file and paste the integration code above</li>
-                                <li>Compile with Solidity 0.8.20+</li>
+                                <li>Compile with Solidity 0.8.24+</li>
                                 <li>Connect MetaMask to BSC Testnet</li>
-                                <li>Deploy with constructor params:
-                                  <ul className="list-disc list-inside ml-4 mt-1">
-                                    <li><code className="bg-slate-100 px-1 rounded">name</code>: "My Token"</li>
-                                    <li><code className="bg-slate-100 px-1 rounded">symbol</code>: "MTK"</li>
-                                    <li><code className="bg-slate-100 px-1 rounded">initialSupply</code>: 1000000</li>
-                                    <li><code className="bg-slate-100 px-1 rounded">owner</code>: your wallet address</li>
-                                  </ul>
-                                </li>
-                                <li>Confirm transaction in MetaMask</li>
-                                <li>Copy the deployed contract address and use it below</li>
+                                <li>Deploy the implementation first (no constructor args), then deploy an <code className="bg-slate-100 px-1 rounded">ERC1967Proxy</code> pointing to it — or use Hardhat with <code className="bg-slate-100 px-1 rounded">deploy:upgradeable:testnet</code> for automatic proxy setup</li>
+                                <li>Copy the <strong>proxy</strong> address and use it below</li>
                               </ol>
                             </div>
                           </div>
@@ -670,7 +654,7 @@ contract MyToken is ERC8056Base, Ownable {
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
                     Option 2: Enter Token Address
                   </h3>
-                  <p className="text-sm text-slate-600 mb-4">
+                  <p className="text-sm text-slate-600 mb-3">
                     If you already have an EIP-8056 token contract address,
                     enter it below to view its details and interact with it.
                   </p>
