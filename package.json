@@ -3,18 +3,26 @@
   "version": "1.0.0",
   "description": "BEP-677: EIP-8056 Scaled UI Amount - Reference Implementation",
   "scripts": {
+    "test": "hardhat test",
     "compile": "hardhat compile",
     "deploy": "hardhat run scripts/deploy.js",
     "node": "hardhat node",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "deploy:testnet": "hardhat run scripts/deploy.js --network testnet",
     "deploy:mainnet": "hardhat run scripts/deploy.js --network mainnet",
+    "deploy:upgradeable:local": "hardhat run scripts/deploy-upgradeable.js --network localhost",
+    "deploy:upgradeable:testnet": "hardhat run scripts/deploy-upgradeable.js --network testnet",
+    "deploy:upgradeable:mainnet": "hardhat run scripts/deploy-upgradeable.js --network mainnet",
+    "upgrade:upgradeable:local": "hardhat run scripts/upgrade-upgradeable.js --network localhost",
+    "upgrade:upgradeable:testnet": "hardhat run scripts/upgrade-upgradeable.js --network testnet",
+    "upgrade:upgradeable:mainnet": "hardhat run scripts/upgrade-upgradeable.js --network mainnet",
     "verify": "hardhat verify"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.0.0",
     "@openzeppelin/contracts-upgradeable": "^5.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.9.1",
     "hardhat": "^2.22.0"
   },
   "dependencies": {

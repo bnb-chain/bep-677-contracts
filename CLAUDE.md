@@ -4,7 +4,7 @@ Solidity smart contract project implementing BEP-677 (EIP-8056 Scaled UI Amount)
 
 ## Tech Stack
 
-- **Hardhat** — Solidity 0.8.20, optimizer enabled (200 runs)
+- **Hardhat** — Solidity 0.8.24, optimizer enabled (200 runs)
 - **npm** — root project package manager
 - **Bun** — playground/ subproject package manager
 
@@ -18,9 +18,16 @@ npx hardhat node         # start local node
 
 ## Project Structure
 
-- `contracts/` — Solidity sources (ERC8056Base, ERC8056Token, interfaces)
+- `contracts/` — Solidity sources
+  - `ERC8056Base.sol` — non-upgradeable abstract base (deprecated, reference only)
+  - `ERC8056Token.sol` — concrete non-upgradeable token (`ScaledUIToken`, deprecated)
+  - `ERC8056BaseUpgradeable.sol` — upgradeable abstract base (recommended)
+  - `ERC8056TokenUpgradeable.sol` — concrete UUPS token (`ScaledUITokenUpgradeable`)
+  - `contracts/mocks/` — test mock contracts (not for production)
+  - interfaces: `IScaledUIAmount*.sol`, `IERC8056Scheduled.sol`
 - `abis/` — pre-built ABI JSON files
-- `scripts/` — deploy scripts (deploy.js)
+- `scripts/` — deploy scripts (`deploy.js`, `deploy-upgradeable.js`)
+- `test/` — Hardhat test suite
 - `playground/` — Vite + React frontend demo (separate Bun project)
 
 ## Deployment (DO NOT run in CI)
@@ -28,9 +35,20 @@ npx hardhat node         # start local node
 Deployment to live networks requires a funded wallet and should only be triggered manually:
 
 ```bash
+# Non-upgradeable (ScaledUIToken — deprecated)
 npm run deploy:local      # local Hardhat node
 npm run deploy:testnet    # BSC testnet (chainId 97)
 npm run deploy:mainnet    # BSC mainnet (chainId 56) — PRODUCTION
+
+# Upgradeable UUPS proxy (ScaledUITokenUpgradeable — recommended)
+npm run deploy:upgradeable:local
+npm run deploy:upgradeable:testnet
+npm run deploy:upgradeable:mainnet      # PRODUCTION
+
+# Upgrade existing UUPS proxy (set PROXY_ADDRESS in .env first)
+npm run upgrade:upgradeable:local
+npm run upgrade:upgradeable:testnet
+npm run upgrade:upgradeable:mainnet     # PRODUCTION
 ```
 
 ## Conventions

@@ -344,6 +344,7 @@ abstract contract ERC8056BaseUpgradeable is
      */
     function _setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp) internal virtual {
         require(effectiveAtTimestamp > block.timestamp, "ERC8056: effective time must be in future");
+        require(effectiveAtTimestamp < type(uint256).max, "ERC8056: effectiveAt overflow");
 
         _validateMultiplier(newMultiplier);
         _beforeMultiplierUpdate(newMultiplier, effectiveAtTimestamp);
