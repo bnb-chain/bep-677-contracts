@@ -10,7 +10,7 @@ on:
   pull_request_review:
     types: [submitted]
   pull_request:
-    types: [opened, ready_for_review]
+    types: [opened, ready_for_review, synchronize]
 
 jobs:
   claude:
@@ -39,11 +39,13 @@ jobs:
           github_token: ${{ github.token }}
           prompt: |
             This is bep-677-contracts, a BNB Chain reference implementation of EIP-8056 (Scaled UI Amount).
-            Solidity 0.8.20, Hardhat, OpenZeppelin v5.
-            Core: contracts/ERC8056Base.sol (multiplier math via mulDiv, scheduled changes with overwrite).
-            Token: contracts/ERC8056Token.sol (Ownable, mints all supply to owner).
+            Solidity 0.8.24, Hardhat, OpenZeppelin v5.
+            Abstract base: contracts/ERC8056BaseUpgradeable.sol (ERC8056BaseUpgradeable, inherit to extend).
+            Concrete token: contracts/ERC8056TokenUpgradeable.sol (ERC8056TokenUpgradeable, Beacon-upgradeable, deploy directly).
+            Deprecated (reference only): contracts/ERC8056Base.sol, contracts/ERC8056Token.sol.
+            Tests: test/ (Hardhat + OZ upgrades plugin, 17 tests).
             Frontend demo: playground/ (Vite + React + Bun).
-            NEVER run deploy scripts. Only compile, test, and lint.
+            NEVER run deploy or upgrade scripts. Only compile, test, and lint.
           claude_args: |-
             --allowedTools "Bash(npx hardhat compile),Bash(npx hardhat test),Bash(npm run lint:*)"
 

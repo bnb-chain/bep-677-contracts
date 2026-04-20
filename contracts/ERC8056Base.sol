@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -60,6 +60,9 @@ import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
  * 3. Access Control:
  *    - The {_authorizeMultiplierUpdate} function MUST be overridden with proper access control
  *    - Consider using a multisig or timelock contract for production deployments
+ *
+ * @custom:deprecated Prefer {ERC8056BaseUpgradeable} for new deployments. This non-upgradeable
+ * variant is retained as a reference implementation. Existing deployed contracts are unaffected.
  */
 abstract contract ERC8056Base is
     ERC20,
@@ -315,6 +318,7 @@ abstract contract ERC8056Base is
      */
     function _setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp) internal virtual {
         require(effectiveAtTimestamp > block.timestamp, "ERC8056: effective time must be in future");
+        require(effectiveAtTimestamp < type(uint256).max, "ERC8056: effectiveAt overflow");
 
         _validateMultiplier(newMultiplier);
         _beforeMultiplierUpdate(newMultiplier, effectiveAtTimestamp);

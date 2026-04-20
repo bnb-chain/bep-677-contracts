@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -36,9 +36,22 @@ import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
  * Example:
  * ```solidity
  * contract MyToken is ERC8056BaseUpgradeable, OwnableUpgradeable {
+ *     /// @custom:oz-upgrades-unsafe-allow constructor
+ *     constructor() { _disableInitializers(); }
+ *
+ *     function initialize(string memory name_, string memory symbol_, uint256 supply, address owner)
+ *         public initializer
+ *     {
+ *         __erc8056Base_init(name_, symbol_);
+ *         __Ownable_init(owner);
+ *         _mint(owner, supply * 10 ** decimals());
+ *     }
+ *
  *     function _authorizeMultiplierUpdate() internal override onlyOwner {}
  * }
  * ```
+ *
+ * See {ERC8056TokenUpgradeable} for a ready-to-deploy concrete implementation.
  *
  * ## Implemented Interfaces
  *
@@ -344,6 +357,7 @@ abstract contract ERC8056BaseUpgradeable is
      */
     function _setUIMultiplier(uint256 newMultiplier, uint256 effectiveAtTimestamp) internal virtual {
         require(effectiveAtTimestamp > block.timestamp, "ERC8056: effective time must be in future");
+        require(effectiveAtTimestamp < type(uint256).max, "ERC8056: effectiveAt overflow");
 
         _validateMultiplier(newMultiplier);
         _beforeMultiplierUpdate(newMultiplier, effectiveAtTimestamp);
