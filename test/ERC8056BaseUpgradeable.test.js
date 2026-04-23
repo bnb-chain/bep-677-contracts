@@ -86,7 +86,6 @@ describe("ERC8056BaseUpgradeable", function () {
       expect(await proxy.effectiveAt()).to.equal(BigInt(futureTs));
     });
 
-
     it("returns no-pending values after scheduled change takes effect", async function () {
       const block = await ethers.provider.getBlock("latest");
       const futureTs = block.timestamp + 100;
