@@ -2,11 +2,14 @@
 pragma solidity ^0.8.24;
 
 /**
- * @dev Extension interface for EIP-8056 with scheduled multiplier changes.
- * @notice Extension: Not part of EIP-8056. May not exist in other implementations.
+ * @dev BSC extension interface for EIP-8056 with scheduled multiplier changes.
+ * @notice BSC Extension — NOT part of the EIP-8056 specification.
+ * Implementations on other chains may not support this interface.
  *
- * This interface provides functions to query pending multiplier changes
- * that have been scheduled but not yet taken effect.
+ * This interface provides richer semantics for querying pending multiplier
+ * changes: a tuple return, a boolean guard, and an overwrite audit event.
+ *
+ * Interface ID: 0xeb0093dd
  */
 interface IERC8056Scheduled {
     /**
@@ -26,7 +29,9 @@ interface IERC8056Scheduled {
     /**
      * @dev Returns the pending multiplier and its effective timestamp.
      *
-     * Use {hasPendingMultiplier} to check if a change is actually pending.
+     * When {hasPendingMultiplier} returns false, MUST return (0, 0).
+     * Clients MUST call {hasPendingMultiplier} before interpreting
+     * the values returned by this function.
      *
      * @return multiplier The scheduled next multiplier value
      * @return effectiveAt The timestamp when the multiplier becomes active

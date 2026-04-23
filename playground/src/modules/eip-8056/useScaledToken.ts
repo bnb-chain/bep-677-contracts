@@ -291,14 +291,10 @@ export function useScaledToken(contractAddress: string): UseScaledTokenReturn {
 
           const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
           const effectiveAtBigInt = nextMultEffectiveAt as bigint;
-          const maxUint256 = BigInt(
-            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-          );
 
-          if (
-            effectiveAtBigInt > currentTimestamp &&
-            effectiveAtBigInt < maxUint256
-          ) {
+          // Per updated BEP-677 spec: effectiveAt() returns 0 when no
+          // pending change exists, and a future timestamp when pending.
+          if (effectiveAtBigInt > 0n && effectiveAtBigInt > currentTimestamp) {
             const remainingSeconds = Number(
               effectiveAtBigInt - currentTimestamp
             );

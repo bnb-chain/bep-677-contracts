@@ -15,14 +15,17 @@ interface IScaledUIAmountNewUIMultiplier {
      * @dev Returns the pending UI multiplier scheduled to take effect at {effectiveAt}.
      * Multiplier is represented with 18 decimals (1e18 = 1.0).
      *
-     * Note: This always returns the stored next multiplier value, even after it has
-     * become active. Use {IERC8056Scheduled-hasPendingMultiplier} (BSC extension)
-     * to check whether a change is still pending.
+     * When no pending change exists, MUST return the same value as
+     * {IScaledUIAmount-uiMultiplier}.
+     *
+     * Integrators can determine whether a genuine pending change exists by
+     * checking `effectiveAt() > block.timestamp`.
      */
     function newUIMultiplier() external view returns (uint256);
 
     /**
      * @dev Returns the timestamp at which the pending multiplier becomes effective.
+     * When no pending change exists, MUST return 0.
      */
     function effectiveAt() external view returns (uint256);
 }

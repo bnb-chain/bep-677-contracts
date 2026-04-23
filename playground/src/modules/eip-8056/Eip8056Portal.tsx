@@ -1365,8 +1365,8 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                               <div className="flex justify-between">
                                 <span className="text-slate-500">effectiveAt:</span>
                                 <span className="text-slate-600 font-mono">
-                                  {eip8056PendingResult.effectiveAt === 0 || eip8056PendingResult.effectiveAt >= 2**53
-                                    ? "—"
+                                  {eip8056PendingResult.effectiveAt === 0
+                                    ? "0 (no pending change)"
                                     : new Date(eip8056PendingResult.effectiveAt * 1000).toLocaleString()}
                                 </span>
                               </div>
@@ -1375,8 +1375,8 @@ console.log(\`Transfer completed: \${txHash}\`)`}
                         </div>
                         <div className="p-3 bg-yellow-50 rounded border border-yellow-200 text-xs text-yellow-800 space-y-1">
                           <p className="font-medium">Note</p>
-                          <p>These getters always return the <em>last scheduled</em> value even after it has already taken effect.</p>
-                          <p>The BSC extension below provides <code className="bg-yellow-100 px-0.5 rounded">hasPendingMultiplier()</code> to distinguish active vs pending states.</p>
+                          <p>When no pending change exists, <code className="bg-yellow-100 px-0.5 rounded">newUIMultiplier()</code> returns the active multiplier and <code className="bg-yellow-100 px-0.5 rounded">effectiveAt()</code> returns <code className="bg-yellow-100 px-0.5 rounded">0</code>.</p>
+                          <p>Check <code className="bg-yellow-100 px-0.5 rounded">effectiveAt() &gt; block.timestamp</code> to determine if a genuine pending change exists.</p>
                         </div>
                       </div>
                     </div>

@@ -100,13 +100,16 @@ abstract contract ERC8056Base is
     /**
      * @dev See {IScaledUIAmountNewUIMultiplier-newUIMultiplier}.
      *
-     * Returns the stored next multiplier value. This reflects what was last
-     * scheduled, even after it has already become active.
+     * Returns the pending UI multiplier scheduled to take effect at {effectiveAt}.
+     * When no pending change exists, returns the same value as {uiMultiplier}.
      *
      * See {IERC8056Scheduled-pendingMultiplier} for a tuple-based alternative
      * that also returns the effective timestamp.
      */
     function newUIMultiplier() public view virtual override returns (uint256) {
+        if (!hasPendingMultiplier()) {
+            return uiMultiplier();
+        }
         return _nextUiMultiplier;
     }
 
@@ -114,10 +117,12 @@ abstract contract ERC8056Base is
      * @dev See {IScaledUIAmountNewUIMultiplier-effectiveAt}.
      *
      * Returns the timestamp at which the pending multiplier becomes effective.
-     * See {IERC8056Scheduled-hasPendingMultiplier} to check if a change is
-     * still pending.
+     * When no pending change exists, returns 0.
      */
     function effectiveAt() public view virtual override returns (uint256) {
+        if (!hasPendingMultiplier()) {
+            return 0;
+        }
         return _nextUiMultiplierEffectiveAt;
     }
 
@@ -163,12 +168,15 @@ abstract contract ERC8056Base is
      * @dev See {IERC8056Scheduled-pendingMultiplier}.
      *
      * Returns the pending multiplier and its effective timestamp as a tuple.
+     * When {hasPendingMultiplier} returns false, returns (0, 0).
+     *
      * This is a BSC extension providing richer semantics than the EIP-standard
      * {newUIMultiplier} and {effectiveAt} individual getters.
-     *
-     * Use {hasPendingMultiplier} to check if a change is actually pending.
      */
     function pendingMultiplier() public view virtual override returns (uint256 multiplier, uint256 effectiveAtTimestamp) {
+        if (!hasPendingMultiplier()) {
+            return (0, 0);
+        }
         return (_nextUiMultiplier, _nextUiMultiplierEffectiveAt);
     }
 
@@ -208,8 +216,10 @@ abstract contract ERC8056Base is
      * Without proper bounds, an authorized caller could set problematic multiplier values:
      *
      * 1. Extremely HIGH multipliers (e.g., > 1e30):
-     *    - May cause overflow in {toUIAmount} calculations even with SafeMath
-     *    - Could result in misleading UI balances
+     *    - The computed uiAmount may exceed meaningful numeric ranges, producing
+     *      values that are misleading or unusable for display purposes
+     *    - For very large raw balances combined with very large multipliers, the
+     *      final result may exceed uint256 capacity
      *
      * 2. Extremely LOW multipliers (e.g., < 1e12):
      *    - May cause precision loss in {toUIAmount}, returning 0 for small balances
