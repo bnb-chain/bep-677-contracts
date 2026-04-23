@@ -5,13 +5,17 @@ const MULTIPLIER_DECIMALS = ethers.parseUnits("1", 18);
 const MAX_UINT256 = ethers.MaxUint256;
 
 describe("ERC8056Base (via ScaledUIToken)", function () {
-  let token, owner, other;
+  let token, mintToken, owner, other;
 
   beforeEach(async function () {
     [owner, other] = await ethers.getSigners();
     const Factory = await ethers.getContractFactory("ScaledUIToken");
     token = await Factory.deploy("Test Token", "TEST", 1_000_000n, owner.address);
     await token.waitForDeployment();
+
+    const MintFactory = await ethers.getContractFactory("ScaledUITokenMint");
+    mintToken = await MintFactory.deploy("Mint Test Token", "MTT", 1_000_000n, owner.address);
+    await mintToken.waitForDeployment();
   });
 
   it("reverts with type(uint256).max effectiveAt (ghost-pending fix)", async function () {
@@ -48,5 +52,40 @@ describe("ERC8056Base (via ScaledUIToken)", function () {
     await expect(
       token.setUIMultiplier(0, block.timestamp + 100)
     ).to.be.revertedWith("ERC8056: multiplier must be positive");
+  });
+
+  describe("TransferWithUIAmount event", function () {
+    it("emits on transfer with raw=ui at 1x multiplier", async function () {
+      const amount = 100n * 10n ** 18n;
+      await expect(token.connect(owner).transfer(other.address, amount))
+        .to.emit(token, "TransferWithUIAmount")
+        .withArgs(owner.address, other.address, amount, amount);
+    });
+
+    it("emits with scaled uiAmount at 2x multiplier", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      await token.setUIMultiplier(2n * MULTIPLIER_DECIMALS, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+
+      const rawAmount = 100n * 10n ** 18n;
+      await expect(token.connect(owner).transfer(other.address, rawAmount))
+        .to.emit(token, "TransferWithUIAmount")
+        .withArgs(owner.address, other.address, rawAmount, 2n * rawAmount);
+    });
+
+    it("emits on mint (from == address(0))", async function () {
+      const mintAmount = 500n * 10n ** 18n;
+      await expect(mintToken.mint(other.address, mintAmount))
+        .to.emit(mintToken, "TransferWithUIAmount")
+        .withArgs(ethers.ZeroAddress, other.address, mintAmount, mintAmount);
+    });
+
+    it("emits on burn (to == address(0))", async function () {
+      const burnAmount = 50n * 10n ** 18n;
+      await expect(mintToken.burn(owner.address, burnAmount))
+        .to.emit(mintToken, "TransferWithUIAmount")
+        .withArgs(owner.address, ethers.ZeroAddress, burnAmount, burnAmount);
+    });
   });
 });

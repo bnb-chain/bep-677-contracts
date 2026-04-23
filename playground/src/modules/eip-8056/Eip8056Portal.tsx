@@ -45,7 +45,7 @@ import {
 } from "./interfaceId";
 import { ERC8056_ABI } from "./abi";
 
-// TODO: update to BeaconProxy address after redeployment
+// BSC Testnet: BeaconProxy address (Beacon: 0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA)
 const DEFAULT_TOKEN_ADDRESS = "0x101ba6E119035C3a037BE594F3454032fDbfa65e";
 
 // ============================================================================
