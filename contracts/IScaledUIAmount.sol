@@ -21,7 +21,9 @@ interface IScaledUIAmount {
     );
 
     /**
-     * @dev OPTIONAL. Emitted during a token transfer with the UI-adjusted amount.
+     * @dev REQUIRED. MUST be emitted on every token transfer, mint, and burn
+     * alongside the standard ERC-20 {Transfer} event so that frontends and
+     * indexers can resolve UI amounts without off-chain multiplier lookups.
      * @param from Sender address (zero address for mints)
      * @param to Recipient address (zero address for burns)
      * @param amount Raw token amount transferred

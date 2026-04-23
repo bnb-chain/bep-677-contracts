@@ -82,7 +82,7 @@ jobs:
                - Access control: _authorizeMultiplierUpdate gating
 
             2. **ERC20 Compatibility**
-               - _update override must call super first, then emit TransferWithUIAmount
+               - _update override MUST call super first, then emit TransferWithUIAmount (required by BEP-677)
                - supportsInterface must cover all implemented interface IDs
                - No breaking changes to standard ERC20 behavior
 
