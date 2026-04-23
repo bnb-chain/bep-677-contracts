@@ -25,9 +25,15 @@ describe("ERC8056BaseUpgradeable", function () {
       expect(await proxy.uiMultiplier()).to.equal(MULTIPLIER_DECIMALS);
       expect(await proxy.hasPendingMultiplier()).to.equal(false);
       expect(await proxy.newUIMultiplier()).to.equal(MULTIPLIER_DECIMALS);
-      expect(await proxy.effectiveAt()).to.equal(MAX_UINT256);
+      expect(await proxy.effectiveAt()).to.equal(0n);
       expect(await proxy.owner()).to.equal(owner.address);
       expect(await proxy.totalSupply()).to.equal(1_000_000n * 10n ** 18n);
+    });
+
+    it("pendingMultiplier returns (0,0) when no pending change", async function () {
+      const [mult, ts] = await proxy.pendingMultiplier();
+      expect(mult).to.equal(0n);
+      expect(ts).to.equal(0n);
     });
 
     it("reverts on second call (InvalidInitialization)", async function () {
@@ -65,6 +71,36 @@ describe("ERC8056BaseUpgradeable", function () {
 
       expect(await proxy.uiMultiplier()).to.equal(newMult);
       expect(await proxy.hasPendingMultiplier()).to.equal(false);
+    });
+
+    it("newUIMultiplier and effectiveAt return pending values while change is pending", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const futureTs = block.timestamp + 100;
+      const newMult = 2n * MULTIPLIER_DECIMALS;
+
+      await proxy.setUIMultiplier(newMult, futureTs);
+
+      expect(await proxy.hasPendingMultiplier()).to.equal(true);
+      expect(await proxy.uiMultiplier()).to.equal(MULTIPLIER_DECIMALS);
+      expect(await proxy.newUIMultiplier()).to.equal(newMult);
+      expect(await proxy.effectiveAt()).to.equal(BigInt(futureTs));
+    });
+
+    it("returns no-pending values after scheduled change takes effect", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const futureTs = block.timestamp + 100;
+      const newMult = 2n * MULTIPLIER_DECIMALS;
+
+      await proxy.setUIMultiplier(newMult, futureTs);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+
+      expect(await proxy.hasPendingMultiplier()).to.equal(false);
+      expect(await proxy.effectiveAt()).to.equal(0n);
+      expect(await proxy.newUIMultiplier()).to.equal(newMult);
+      const [pm, pmTs] = await proxy.pendingMultiplier();
+      expect(pm).to.equal(0n);
+      expect(pmTs).to.equal(0n);
     });
 
     it("emits UIMultiplierChangeOverwritten when overwriting a pending change", async function () {
