@@ -367,8 +367,10 @@ abstract contract ERC8056Base is
      * @dev Override of ERC20 internal transfer hook to emit {IScaledUIAmount-TransferWithUIAmount}.
      *
      * Per BEP-677, implementations MUST emit a {TransferWithUIAmount} event on every
-     * token transfer, mint, and burn. Any override MUST preserve this behavior by
-     * calling `super._update` or emitting the event directly.
+     * token transfer, mint, and burn. Any override MUST call `super._update` to
+     * preserve both ERC20 accounting and this event emission. Do NOT emit this
+     * event separately instead of calling super — that would silently skip token
+     * balance updates.
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         super._update(from, to, value);
