@@ -73,6 +73,19 @@ describe("ERC8056BaseUpgradeable", function () {
       expect(await proxy.hasPendingMultiplier()).to.equal(false);
     });
 
+    it("newUIMultiplier and effectiveAt return pending values while change is pending", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const futureTs = block.timestamp + 100;
+      const newMult = 2n * MULTIPLIER_DECIMALS;
+
+      await proxy.setUIMultiplier(newMult, futureTs);
+
+      expect(await proxy.hasPendingMultiplier()).to.equal(true);
+      expect(await proxy.uiMultiplier()).to.equal(MULTIPLIER_DECIMALS);
+      expect(await proxy.newUIMultiplier()).to.equal(newMult);
+      expect(await proxy.effectiveAt()).to.equal(BigInt(futureTs));
+    });
+
     it("returns no-pending values after scheduled change takes effect", async function () {
       const block = await ethers.provider.getBlock("latest");
       const futureTs = block.timestamp + 100;

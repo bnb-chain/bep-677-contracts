@@ -30,8 +30,9 @@ interface IERC8056Scheduled {
      * @dev Returns the pending multiplier and its effective timestamp.
      *
      * When {hasPendingMultiplier} returns false, MUST return (0, 0).
-     * Clients MUST call {hasPendingMultiplier} before interpreting
-     * the values returned by this function.
+     * Since a zero multiplier can never be scheduled ({_validateMultiplier}
+     * rejects it), clients MAY use the (0, 0) sentinel directly, or call
+     * {hasPendingMultiplier} for an explicit boolean check.
      *
      * @return multiplier The scheduled next multiplier value
      * @return effectiveAt The timestamp when the multiplier becomes active
