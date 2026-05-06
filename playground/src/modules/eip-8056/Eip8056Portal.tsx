@@ -45,7 +45,7 @@ import {
 } from "./interfaceId";
 import { ERC8056_ABI } from "./abi";
 
-// BSC Testnet: BeaconProxy address (Beacon: 0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA)
+// BSC Testnet: BeaconProxy address (Beacon: 0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA, Impl: 0x31B126f3DA377C65980Fb6d34BbDD3e74ACB1F45)
 const DEFAULT_TOKEN_ADDRESS = "0x101ba6E119035C3a037BE594F3454032fDbfa65e";
 
 // ============================================================================
@@ -185,8 +185,9 @@ export function Eip8056Portal() {
   const [interfaceDetectionResults, setInterfaceDetectionResults] = useState<Record<string, boolean | null>>({});
   const [interfaceDetecting, setInterfaceDetecting] = useState(false);
 
-  // Transfer result state
-  const [transferResult, setTransferResult] = useState<{ hash: string; rawAmount: string; uiAmount: string } | null>(null);
+  // Transfer result state. uiAmountIsSentinel=true means uiAmount=0 is an overflow sentinel (L-04),
+  // not an actual zero — the raw transfer still succeeded.
+  const [transferResult, setTransferResult] = useState<{ hash: string; rawAmount: string; uiAmount: string; uiAmountIsSentinel: boolean } | null>(null);
 
   const publicClient = usePublicClient();
 
@@ -233,10 +234,14 @@ export function Eip8056Portal() {
           });
           if (logs.length > 0 && tokenData) {
             const { amount, uiAmount } = logs[0].args as { amount: bigint; uiAmount: bigint };
+            // uiAmount === 0n while amount > 0n is a sentinel: the multiplier caused uint256 overflow.
+            // The raw transfer succeeded; the UI representation is currently unrepresentable (L-04).
+            const uiAmountIsSentinel = uiAmount === 0n && amount > 0n;
             setTransferResult({
               hash,
               rawAmount: formatUnits(amount, tokenData.decimals),
-              uiAmount: formatUnits(uiAmount, tokenData.decimals),
+              uiAmount: uiAmountIsSentinel ? "0" : formatUnits(uiAmount, tokenData.decimals),
+              uiAmountIsSentinel,
             });
           }
         } catch {
@@ -524,7 +529,7 @@ export function Eip8056Portal() {
                     to create an upgradeable EIP-8056 token using the Beacon proxy pattern.
                   </p>
                   <div className="space-y-4">
-                    {/* Inherit ERC8056Base */}
+                    {/* Inherit ERC8056BaseUpgradeable */}
                     <div className="p-3 bg-white rounded border border-emerald-100">
                       <h4 className="font-medium text-sm text-slate-900 mb-2">
                         Hooks to Implement:
@@ -554,7 +559,7 @@ export function Eip8056Portal() {
                           </code>
                           <span className="text-slate-400 ml-1">(Optional)</span>
                           <p className="text-slate-500 mt-0.5">
-                            Prevent overwriting pending changes.
+                            Prevent overwriting pending changes or block acceleration of a scheduled update.
                         </p>
                       </div>
                     </div>
@@ -1243,7 +1248,13 @@ console.log(\`Supports Scheduled: \${balance.supportsScheduled}\`)`}
                               </div>
                               <div>
                                 <span className="text-emerald-600">UI amount:</span>
-                                <span className="ml-1 font-mono font-semibold text-emerald-700">{Number(transferResult.uiAmount).toLocaleString()}</span>
+                                {transferResult.uiAmountIsSentinel ? (
+                                  <span className="ml-1 font-mono text-amber-600" title="uiAmount=0 is an overflow sentinel — multiplier too extreme to compute UI value. Raw transfer succeeded.">
+                                    ⚠ unrepresentable
+                                  </span>
+                                ) : (
+                                  <span className="ml-1 font-mono font-semibold text-emerald-700">{Number(transferResult.uiAmount).toLocaleString()}</span>
+                                )}
                               </div>
                             </div>
                             <a
@@ -1687,27 +1698,6 @@ if (hasPending) {
                           </Button>
                         </CardContent>
                       </Card>
-                    </div>
-
-                    {/* Breaking change notice */}
-                    <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                        <div className="text-sm text-red-800">
-                          <p className="font-semibold mb-1">Breaking Change: UIMultiplierUpdated Event (3 params)</p>
-                          <p className="text-xs text-red-700 mb-2">
-                            The event signature was changed per EIP-8056 spec alignment. The old 4-param version included <code className="bg-red-100 px-1 rounded">setAtTimestamp</code> which was removed.
-                          </p>
-                          <div className="grid grid-cols-1 gap-1 font-mono text-xs">
-                            <div className="bg-red-100 px-2 py-1 rounded line-through opacity-60">
-                              UIMultiplierUpdated(uint256 old, uint256 new, uint256 setAt, uint256 effectiveAt)
-                            </div>
-                            <div className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded">
-                              UIMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier, uint256 effectiveAtTimestamp)
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
 
                     <ExpandableSection
