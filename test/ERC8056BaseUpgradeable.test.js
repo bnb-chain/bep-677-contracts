@@ -318,8 +318,8 @@ describe("ERC8056BaseUpgradeable", function () {
     });
   });
 
-  describe("upgrade safety", function () {
-    it("validates safe V2 upgrade (appended field)", async function () {
+  describe("upgrade safety / storage layout (L-05)", function () {
+    it("V1 → V2Mock (appended field) is layout-compatible per validateUpgrade", async function () {
       const V2Factory = await ethers.getContractFactory("ERC8056BaseUpgradeableV2Mock");
       await upgrades.validateUpgrade(await beacon.getAddress(), V2Factory, { kind: "beacon" });
     });
