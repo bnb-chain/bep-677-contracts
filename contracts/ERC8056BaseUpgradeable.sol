@@ -121,6 +121,7 @@ abstract contract ERC8056BaseUpgradeable is
         _uiMultiplier = MULTIPLIER_DECIMALS;
         _nextUiMultiplier = MULTIPLIER_DECIMALS;
         _nextUiMultiplierEffectiveAt = type(uint256).max;
+        emit UIMultiplierUpdated(0, MULTIPLIER_DECIMALS, block.timestamp);
     }
 
     /**

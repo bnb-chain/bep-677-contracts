@@ -30,6 +30,26 @@ describe("ERC8056BaseUpgradeable", function () {
       expect(await proxy.totalSupply()).to.equal(1_000_000n * 10n ** 18n);
     });
 
+    it("emits UIMultiplierUpdated(0, 1e18, timestamp) on initialization (L-01)", async function () {
+      const Factory = await ethers.getContractFactory("ERC8056TokenUpgradeable");
+      const newBeacon = await upgrades.deployBeacon(Factory);
+      await newBeacon.waitForDeployment();
+      const tx = await upgrades.deployBeaconProxy(
+        newBeacon,
+        Factory,
+        ["T", "T", 1n, owner.address],
+        { dontCache: true }
+      );
+      const receipt = await tx.deploymentTransaction().wait();
+      const iface = new ethers.Interface([
+        "event UIMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier, uint256 effectiveAtTimestamp)"
+      ]);
+      const log = receipt.logs.map(l => { try { return iface.parseLog(l); } catch { return null; } }).find(l => l && l.name === "UIMultiplierUpdated" && l.args.oldMultiplier === 0n);
+      expect(log).to.not.be.undefined;
+      expect(log.args.oldMultiplier).to.equal(0n);
+      expect(log.args.newMultiplier).to.equal(MULTIPLIER_DECIMALS);
+    });
+
     it("pendingMultiplier returns (0,0) when no pending change", async function () {
       const [mult, ts] = await proxy.pendingMultiplier();
       expect(mult).to.equal(0n);
