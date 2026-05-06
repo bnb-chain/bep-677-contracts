@@ -68,11 +68,13 @@ import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
  *    - Extremely low multipliers may cause precision loss (toUIAmount returning 0)
  *    - Consider implementing min/max bounds based on your use case
  *
- * 2. Pending Change Overwrites (see {_beforeMultiplierUpdate}):
+ * 2. Pending Change Overwrites and Acceleration (see {_beforeMultiplierUpdate}):
  *    - By default, scheduled multiplier changes can be overwritten
- *    - This may cause confusion for users monitoring {IScaledUIAmount-UIMultiplierUpdated} events
- *    - Consider overriding {_beforeMultiplierUpdate} to prevent overwrites
- *    - When overwrites occur, {IERC8056Scheduled-UIMultiplierChangeOverwritten} is emitted
+ *    - The new effectiveAtTimestamp is only constrained to be in the future; an overwrite
+ *      MAY shorten the previously announced window to as little as the next block
+ *    - Integrators MUST NOT rely on the originally announced effectiveAt for risk-management
+ *      timing; they MUST monitor {IERC8056Scheduled-UIMultiplierChangeOverwritten} events
+ *    - Consider overriding {_beforeMultiplierUpdate} to prevent overwrites or acceleration
  *
  * 3. Access Control:
  *    - The {_authorizeMultiplierUpdate} function MUST be overridden with proper access control
@@ -339,6 +341,18 @@ abstract contract ERC8056BaseUpgradeable is
      * ```solidity
      * function _beforeMultiplierUpdate(uint256, uint256) internal view override {
      *     require(!hasPendingMultiplier(), "Cannot overwrite pending change");
+     * }
+     * ```
+     *
+     * Example (prevent acceleration of a pending change):
+     * ```solidity
+     * function _beforeMultiplierUpdate(uint256, uint256 effectiveAtTimestamp) internal view override {
+     *     if (hasPendingMultiplier()) {
+     *         require(
+     *             effectiveAtTimestamp >= effectiveAt(),
+     *             "Cannot accelerate pending multiplier"
+     *         );
+     *     }
      * }
      * ```
      */

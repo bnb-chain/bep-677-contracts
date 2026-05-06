@@ -229,6 +229,56 @@ describe("ERC8056BaseUpgradeable", function () {
     });
   });
 
+  describe("acceleration semantics (L-03)", function () {
+    it("default: allows overwrite with earlier effectiveAt (acceleration), emits UIMultiplierChangeOverwritten", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const farTs = block.timestamp + 30 * 24 * 3600; // 30 days out
+      const nearTs = block.timestamp + 100;            // 100 s out — near relative to farTs
+
+      await proxy.setUIMultiplier(2n * MULTIPLIER_DECIMALS, farTs);
+      await expect(proxy.setUIMultiplier(3n * MULTIPLIER_DECIMALS, nearTs))
+        .to.emit(proxy, "UIMultiplierChangeOverwritten")
+        .withArgs(2n * MULTIPLIER_DECIMALS, BigInt(farTs), 3n * MULTIPLIER_DECIMALS, BigInt(nearTs));
+    });
+
+    it("override: no-accelerate mock rejects acceleration of pending change", async function () {
+      const Factory = await ethers.getContractFactory("ERC8056NoAccelerateMock");
+      const noAccBeacon = await upgrades.deployBeacon(Factory);
+      await noAccBeacon.waitForDeployment();
+      const noAccProxy = await upgrades.deployBeaconProxy(
+        noAccBeacon, Factory, ["T", "T", 1n, owner.address]
+      );
+      await noAccProxy.waitForDeployment();
+
+      const block = await ethers.provider.getBlock("latest");
+      const farTs = block.timestamp + 30 * 24 * 3600;
+      const nearTs = block.timestamp + 100; // 100 s out — near relative to farTs
+
+      await noAccProxy.setUIMultiplier(2n * MULTIPLIER_DECIMALS, farTs);
+      await expect(
+        noAccProxy.setUIMultiplier(3n * MULTIPLIER_DECIMALS, nearTs)
+      ).to.be.revertedWith("Cannot accelerate pending multiplier");
+    });
+
+    it("override: no-accelerate mock still allows overwrite at same or later effectiveAt", async function () {
+      const Factory = await ethers.getContractFactory("ERC8056NoAccelerateMock");
+      const noAccBeacon = await upgrades.deployBeacon(Factory);
+      await noAccBeacon.waitForDeployment();
+      const noAccProxy = await upgrades.deployBeaconProxy(
+        noAccBeacon, Factory, ["T", "T", 1n, owner.address]
+      );
+      await noAccProxy.waitForDeployment();
+
+      const block = await ethers.provider.getBlock("latest");
+      const farTs = block.timestamp + 30 * 24 * 3600;
+      const laterTs = block.timestamp + 60 * 24 * 3600; // 60 days out
+
+      await noAccProxy.setUIMultiplier(2n * MULTIPLIER_DECIMALS, farTs);
+      await expect(noAccProxy.setUIMultiplier(3n * MULTIPLIER_DECIMALS, laterTs))
+        .to.emit(noAccProxy, "UIMultiplierChangeOverwritten");
+    });
+  });
+
   describe("rounding behavior (L-02)", function () {
     // multiplier = 1.5e18 → toUIAmount(x) = floor(x * 1.5)
     // These tests pin the floor-rounding guarantee; deleting them requires a deliberate rounding-mode change.
