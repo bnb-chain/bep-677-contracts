@@ -15,9 +15,8 @@ import {IERC8056Scheduled} from "./IERC8056Scheduled.sol";
  * @dev Abstract upgradeable base contract for EIP-8056 Scaled UI Amount extension.
  * @notice See https://eips.ethereum.org/EIPS/eip-8056 for the full specification.
  *
- * This is the **upgradeable** version of ERC8056Base, designed for BeaconProxy
- * deployments. It uses OpenZeppelin upgradeable contracts and follows the
- * standard `__init` / `__init_unchained` initialization pattern.
+ * Designed for BeaconProxy deployments. Uses OpenZeppelin upgradeable contracts
+ * and follows the standard `__init` / `__init_unchained` initialization pattern.
  *
  * This implementation provides a UI multiplier mechanism that allows token
  * amounts to be displayed differently from their actual on-chain values.
@@ -114,7 +113,7 @@ abstract contract ERC8056BaseUpgradeable is
     }
 
     /**
-     * @notice Unchained initialization function for ERC8056Base-specific state
+     * @notice Unchained initialization function for ERC8056-specific state
      */
     function __erc8056Base_init_unchained()
         internal
