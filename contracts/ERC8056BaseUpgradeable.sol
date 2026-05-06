@@ -169,8 +169,16 @@ abstract contract ERC8056BaseUpgradeable is
     /**
      * @dev See {IScaledUIAmountConversion-toUIAmount}.
      *
-     * Converts a raw token amount to its UI representation using the
-     * current multiplier. Uses {Math-mulDiv} for overflow-safe calculation.
+     * Converts a raw token amount to its UI representation using the current
+     * multiplier. Uses {Math-mulDiv} for overflow-safe 512-bit arithmetic.
+     *
+     * Result is rounded toward zero (integer division truncation).
+     * `fromUIAmount(toUIAmount(x)) <= x` — round-trip is NOT lossless.
+     *
+     * Integrators MUST NOT:
+     * - Assert `fromUIAmount(toUIAmount(x)) == x` in invariants or revert checks
+     * - Use this function for internal accounting; store raw amounts and call
+     *   this only at the display boundary
      */
     function toUIAmount(uint256 rawAmount) public view virtual override returns (uint256) {
         return rawAmount.mulDiv(uiMultiplier(), MULTIPLIER_DECIMALS);
@@ -179,8 +187,16 @@ abstract contract ERC8056BaseUpgradeable is
     /**
      * @dev See {IScaledUIAmountConversion-fromUIAmount}.
      *
-     * Converts a UI amount back to raw token amount. This is the inverse
-     * of {toUIAmount}.
+     * Converts a UI amount back to raw token amount. Uses {Math-mulDiv} for
+     * overflow-safe 512-bit arithmetic.
+     *
+     * Result is rounded toward zero (integer division truncation).
+     * `fromUIAmount(toUIAmount(x)) <= x` — round-trip is NOT lossless.
+     *
+     * Integrators MUST NOT:
+     * - Assert `fromUIAmount(toUIAmount(x)) == x` in invariants or revert checks
+     * - Use this function for internal accounting; store raw amounts and call
+     *   this only at the display boundary
      */
     function fromUIAmount(uint256 uiAmount) public view virtual override returns (uint256) {
         return uiAmount.mulDiv(MULTIPLIER_DECIMALS, uiMultiplier());
