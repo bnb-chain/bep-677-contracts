@@ -18,6 +18,19 @@ describe("ERC8056Base (via ScaledUIToken)", function () {
     await mintToken.waitForDeployment();
   });
 
+  it("emits UIMultiplierUpdated(0, 1e18, timestamp) on deployment (L-01)", async function () {
+    const Factory = await ethers.getContractFactory("ScaledUIToken");
+    const tx = await Factory.deploy("T", "T", 1n, owner.address);
+    const receipt = await tx.deploymentTransaction().wait();
+    const iface = new ethers.Interface([
+      "event UIMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier, uint256 effectiveAtTimestamp)"
+    ]);
+    const log = receipt.logs.map(l => { try { return iface.parseLog(l); } catch { return null; } }).find(l => l && l.name === "UIMultiplierUpdated" && l.args.oldMultiplier === 0n);
+    expect(log).to.not.be.undefined;
+    expect(log.args.oldMultiplier).to.equal(0n);
+    expect(log.args.newMultiplier).to.equal(MULTIPLIER_DECIMALS);
+  });
+
   it("reverts with type(uint256).max effectiveAt (ghost-pending fix)", async function () {
     await expect(
       token.setUIMultiplier(2n * MULTIPLIER_DECIMALS, MAX_UINT256)

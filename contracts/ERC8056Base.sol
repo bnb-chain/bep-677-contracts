@@ -84,6 +84,10 @@ abstract contract ERC8056Base is
     uint256 private _nextUiMultiplier = MULTIPLIER_DECIMALS;
     uint256 private _nextUiMultiplierEffectiveAt = type(uint256).max;
 
+    constructor() {
+        emit UIMultiplierUpdated(0, MULTIPLIER_DECIMALS, block.timestamp);
+    }
+
     /**
      * @dev See {IScaledUIAmount-uiMultiplier}.
      *
