@@ -512,13 +512,27 @@ abstract contract ERC8056BaseUpgradeable is
     }
 
     /**
-     * @dev This empty reserved space is put in place to allow future versions to add new
-     * variables without shifting down storage in the inheritance chain.
-     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     * @dev Reserved storage gap. See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      *
-     * NOTE: Sized to 47 to compensate for the 3 storage slots used above
-     * (_uiMultiplier, _nextUiMultiplier, _nextUiMultiplierEffectiveAt).
-     * Total: 47 + 3 = 50 reserved slots.
+     * MAINTAINERS — when adding state variables, ALL of the following MUST hold:
+     *   1. Declare the new variable BEFORE __gap (after the existing 3 variables)
+     *   2. Decrement __gap size by exactly the number of new slots used
+     *      (uint256 = 1 slot; mapping = 1 slot; struct = sum of fields rounded up
+     *      to the 32-byte boundary)
+     *   3. Do NOT reorder existing variables (_uiMultiplier, _nextUiMultiplier,
+     *      _nextUiMultiplierEffectiveAt) — slot order is part of the on-chain
+     *      storage layout contract
+     *   4. Run `npx hardhat test` (includes the validateUpgrade layout test) and
+     *      verify `.openzeppelin/<network>.json` reflects the expected layout
+     *      before deploying any upgrade
+     *   5. If a future OpenZeppelin release adds state variables to a parent
+     *      contract (e.g. ERC20Upgradeable), this gap may need to shrink even
+     *      without any changes here — check OZ release notes before upgrading
+     *
+     * Current allocation: 47 gap + 3 used = 50 reserved slots total.
+     *
+     * If extensive storage additions are anticipated, consider migrating to
+     * ERC-7201 namespaced storage (https://eips.ethereum.org/EIPS/eip-7201).
      */
     uint256[47] private __gap;
 }
