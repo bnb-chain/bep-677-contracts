@@ -229,6 +229,45 @@ describe("ERC8056BaseUpgradeable", function () {
     });
   });
 
+  describe("rounding behavior (L-02)", function () {
+    // multiplier = 1.5e18 → toUIAmount(x) = floor(x * 1.5)
+    // These tests pin the floor-rounding guarantee; deleting them requires a deliberate rounding-mode change.
+    it("toUIAmount rounds toward zero (11 raw at 1.5x → 16 ui)", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const mult15 = 3n * MULTIPLIER_DECIMALS / 2n; // 1.5e18
+      await proxy.setUIMultiplier(mult15, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+
+      // 11 * 1.5 = 16.5 → floor = 16
+      expect(await proxy.toUIAmount(11n)).to.equal(16n);
+    });
+
+    it("fromUIAmount rounds toward zero (16 ui at 1.5x → 10 raw)", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const mult15 = 3n * MULTIPLIER_DECIMALS / 2n;
+      await proxy.setUIMultiplier(mult15, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+
+      // 16 / 1.5 = 10.666... → floor = 10
+      expect(await proxy.fromUIAmount(16n)).to.equal(10n);
+    });
+
+    it("round-trip fromUIAmount(toUIAmount(x)) <= x (dust = 1)", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const mult15 = 3n * MULTIPLIER_DECIMALS / 2n;
+      await proxy.setUIMultiplier(mult15, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+
+      const ui = await proxy.toUIAmount(11n);   // 16
+      const raw = await proxy.fromUIAmount(ui); // 10
+      expect(raw).to.be.lte(11n);
+      expect(11n - raw).to.equal(1n); // dust = 1
+    });
+  });
+
   describe("upgrade safety", function () {
     it("validates safe V2 upgrade (appended field)", async function () {
       const V2Factory = await ethers.getContractFactory("ERC8056BaseUpgradeableV2Mock");

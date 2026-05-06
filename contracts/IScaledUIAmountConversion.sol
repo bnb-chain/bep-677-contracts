@@ -8,6 +8,11 @@ pragma solidity ^0.8.24;
  * Contracts MAY implement this extension to provide on-chain helpers for
  * converting between raw token amounts and their UI representations.
  *
+ * ROUNDING: The rounding direction is implementation-defined and not specified
+ * by EIP-8056. Round-trip conversion `fromUIAmount(toUIAmount(x))` is NOT
+ * guaranteed to return `x`. Consult the implementation's NatDoc for the
+ * specific rounding strategy in use.
+ *
  * Interface ID: 0x57854fc3
  */
 interface IScaledUIAmountConversion {
