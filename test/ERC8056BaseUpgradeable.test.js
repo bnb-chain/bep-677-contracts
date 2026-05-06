@@ -347,6 +347,48 @@ describe("ERC8056BaseUpgradeable", function () {
     });
   });
 
+  describe("extreme multiplier resilience (L-04)", function () {
+    let extremeProxy;
+    // 1e75: tryMul(100e18, 1e75)=1e95>2^256 → sentinel; mulDiv(1M*1e18, 1e75, 1e18)=1e81>2^256 → revert
+    const EXTREME_MULT = 10n ** 75n;
+
+    beforeEach(async function () {
+      const Factory = await ethers.getContractFactory("ERC8056ExtremeMultiplierMock");
+      const extBeacon = await upgrades.deployBeacon(Factory);
+      await extBeacon.waitForDeployment();
+      extremeProxy = await upgrades.deployBeaconProxy(
+        extBeacon, Factory, ["T", "T", 1_000_000n, owner.address]
+      );
+      await extremeProxy.waitForDeployment();
+
+      const block = await ethers.provider.getBlock("latest");
+      await extremeProxy.setUIMultiplier(EXTREME_MULT, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+    });
+
+    it("raw transfer succeeds — does not revert under extreme multiplier", async function () {
+      const amount = 100n * 10n ** 18n;
+      await expect(extremeProxy.transfer(other.address, amount)).to.not.be.reverted;
+    });
+
+    it("emits TransferWithUIAmount with uiAmount=0 sentinel on overflow", async function () {
+      const amount = 100n * 10n ** 18n;
+      await expect(extremeProxy.transfer(other.address, amount))
+        .to.emit(extremeProxy, "TransferWithUIAmount")
+        .withArgs(owner.address, other.address, amount, 0n);
+    });
+
+    it("balanceOf returns correct raw value under extreme multiplier", async function () {
+      const rawTotal = 1_000_000n * 10n ** 18n;
+      expect(await extremeProxy.balanceOf(owner.address)).to.equal(rawTotal);
+    });
+
+    it("balanceOfUI reverts under extreme multiplier (intentional — avoids misleading 0)", async function () {
+      await expect(extremeProxy.balanceOfUI(owner.address)).to.be.reverted;
+    });
+  });
+
   describe("TransferWithUIAmount event", function () {
     it("emits on transfer with raw=ui at 1x multiplier", async function () {
       const amount = 100n * 10n ** 18n;

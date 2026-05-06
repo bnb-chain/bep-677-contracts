@@ -208,6 +208,11 @@ abstract contract ERC8056BaseUpgradeable is
      * @dev See {IScaledUIAmountBalances-balanceOfUI}.
      *
      * Returns the UI-adjusted balance of `account`.
+     *
+     * NOTE: This function deliberately reverts when the multiplier is so extreme
+     * that `balance × multiplier` would overflow `uint256`. Returning 0 in that
+     * case would mislead frontends into showing an empty balance. A revert is a
+     * clearer signal that the UI value is currently unrepresentable.
      */
     function balanceOfUI(address account) public view virtual override returns (uint256) {
         return toUIAmount(balanceOf(account));
@@ -217,9 +222,30 @@ abstract contract ERC8056BaseUpgradeable is
      * @dev See {IScaledUIAmountBalances-totalSupplyUI}.
      *
      * Returns the UI-adjusted total supply.
+     *
+     * NOTE: Like {balanceOfUI}, this reverts under extreme multipliers rather
+     * than returning a misleading 0.
      */
     function totalSupplyUI() public view virtual override returns (uint256) {
         return toUIAmount(totalSupply());
+    }
+
+    /**
+     * @dev Overflow-safe variant of {toUIAmount} used internally by {_update}.
+     *
+     * Uses {Math-tryMul} instead of {Math-mulDiv} so that an intermediate
+     * overflow does not revert the enclosing ERC-20 transfer. Returns
+     * `(false, 0)` when `rawAmount × uiMultiplier` exceeds `uint256`.
+     *
+     * The public {toUIAmount} retains full {Math-mulDiv} 512-bit precision for
+     * display and off-chain use; this function is only for the transfer path
+     * where a revert would break ERC-20 backwards compatibility.
+     */
+    function _tryToUIAmount(uint256 rawAmount) internal view returns (bool ok, uint256 ui) {
+        uint256 mult = uiMultiplier();
+        (bool mulOk, uint256 prod) = Math.tryMul(rawAmount, mult);
+        if (!mulOk) return (false, 0);
+        return (true, prod / MULTIPLIER_DECIMALS);
     }
 
     /**
@@ -451,10 +477,15 @@ abstract contract ERC8056BaseUpgradeable is
      * preserve both ERC20 accounting and this event emission. Do NOT emit this
      * event separately instead of calling super — that would silently skip token
      * balance updates.
+     *
+     * Uses {_tryToUIAmount} so that an extreme multiplier causing overflow emits
+     * `uiAmount = 0` as a sentinel instead of reverting, preserving ERC-20
+     * backwards compatibility per EIP-8056.
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         super._update(from, to, value);
-        emit TransferWithUIAmount(from, to, value, toUIAmount(value));
+        (bool ok, uint256 ui) = _tryToUIAmount(value);
+        emit TransferWithUIAmount(from, to, value, ok ? ui : 0);
     }
 
     /**

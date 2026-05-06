@@ -67,6 +67,37 @@ describe("ERC8056Base (via ScaledUIToken)", function () {
     ).to.be.revertedWith("ERC8056: multiplier must be positive");
   });
 
+  describe("extreme multiplier resilience (L-04)", function () {
+    // 1e75: tryMul(100e18, 1e75)=1e95>2^256 → sentinel; mulDiv(1M*1e18, 1e75, 1e18)=1e81>2^256 → revert
+    const EXTREME_MULT = 10n ** 75n;
+    let extremeToken;
+
+    beforeEach(async function () {
+      const Factory = await ethers.getContractFactory("ERC8056ExtremeMultiplierBaseMock");
+      extremeToken = await Factory.deploy("T", "T", 1_000_000n, owner.address);
+      await extremeToken.waitForDeployment();
+      const block = await ethers.provider.getBlock("latest");
+      await extremeToken.setUIMultiplier(EXTREME_MULT, block.timestamp + 100);
+      await ethers.provider.send("evm_increaseTime", [101]);
+      await ethers.provider.send("evm_mine", []);
+    });
+
+    it("raw transfer succeeds — does not revert under extreme multiplier", async function () {
+      await expect(extremeToken.transfer(other.address, 100n * 10n ** 18n)).to.not.be.reverted;
+    });
+
+    it("emits TransferWithUIAmount with uiAmount=0 sentinel on overflow", async function () {
+      const amount = 100n * 10n ** 18n;
+      await expect(extremeToken.transfer(other.address, amount))
+        .to.emit(extremeToken, "TransferWithUIAmount")
+        .withArgs(owner.address, other.address, amount, 0n);
+    });
+
+    it("balanceOfUI reverts under extreme multiplier (intentional)", async function () {
+      await expect(extremeToken.balanceOfUI(owner.address)).to.be.reverted;
+    });
+  });
+
   describe("TransferWithUIAmount event", function () {
     it("emits on transfer with raw=ui at 1x multiplier", async function () {
       const amount = 100n * 10n ** 18n;
