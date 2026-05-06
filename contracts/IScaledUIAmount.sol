@@ -27,17 +27,21 @@ interface IScaledUIAmount {
      * alongside the standard ERC-20 {Transfer} event so that frontends and
      * indexers can resolve UI amounts without off-chain multiplier lookups.
      *
-     * If `uiAmount == 0` while `amount != 0`, the UI representation is not
-     * currently expressible (extreme multiplier caused overflow). Consumers
-     * SHOULD recompute via `toUIAmount(amount)` against the current multiplier.
-     * This sentinel guarantees `_update` cannot revert and break ERC-20
-     * backwards compatibility per EIP-8056.
+     * `uiAmount == 0` can arise from three cases:
+     *   (a) Genuine zero-value transfer (`amount == 0`).
+     *   (b) Precision-loss truncation: `amount * uiMultiplier / 1e18` truncates
+     *       to 0 under floor rounding.
+     *   (c) Overflow sentinel: `amount * uiMultiplier` would overflow `uint256`,
+     *       and the implementation forces `uiAmount = 0` instead of reverting
+     *       to preserve ERC-20 backwards compatibility per EIP-8056.
+     *
+     * (b) and (c) are indistinguishable from this event alone; consumers SHOULD
+     * recompute via `toUIAmount(amount)` whenever `amount > 0 && uiAmount == 0`.
      *
      * @param from Sender address (zero address for mints)
      * @param to Recipient address (zero address for burns)
      * @param amount Raw token amount transferred
-     * @param uiAmount UI-adjusted amount at the time of transfer, or 0 as a
-     *        sentinel when the value is unrepresentable (see above)
+     * @param uiAmount UI-adjusted amount at the time of transfer; see above for `0` semantics
      */
     event TransferWithUIAmount(
         address indexed from,

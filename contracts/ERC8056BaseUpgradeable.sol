@@ -477,9 +477,12 @@ abstract contract ERC8056BaseUpgradeable is
      * event separately instead of calling super — that would silently skip token
      * balance updates.
      *
-     * Uses {_tryToUIAmount} so that an extreme multiplier causing overflow emits
-     * `uiAmount = 0` as a sentinel instead of reverting, preserving ERC-20
-     * backwards compatibility per EIP-8056.
+     * Uses {_tryToUIAmount} to compute `uiAmount`, falling back to `0` when the
+     * multiplication would overflow `uint256` rather than reverting. This
+     * preserves ERC-20 backwards compatibility per EIP-8056. See
+     * {IScaledUIAmount-TransferWithUIAmount} for the three sources of
+     * `uiAmount = 0` (genuine zero, truncation, overflow sentinel) and the
+     * unified consumer handling path.
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         super._update(from, to, value);
