@@ -8,13 +8,13 @@ Reference implementation of [BEP-677](https://github.com/bnb-chain/beps/blob/mas
 
 📖 [BEP-677 Specification](https://github.com/bnb-chain/beps/blob/master/BEPs/BEP-677.md) · 📖 [EIP-8056 Specification](https://eips.ethereum.org/EIPS/eip-8056) · 🧪 [Live Demo](https://bnb-chain.github.io/bep-677-contracts)
 
-## Contract Addresses
+## Deployments
 
-| Token | Variant | Network | Address |
-|---|---|---|---|
-| `ERC8056TokenUpgradeable` | Upgradeable Beacon (BeaconProxy) | BSC Testnet | [`0x101ba6E119035C3a037BE594F3454032fDbfa65e`](https://testnet.bscscan.com/address/0x101ba6E119035C3a037BE594F3454032fDbfa65e) |
-| `ERC8056TokenUpgradeable` | Upgradeable Beacon (UpgradeableBeacon) | BSC Testnet | [`0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA`](https://testnet.bscscan.com/address/0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA) |
-| ~~`ScaledUIToken`~~ | ~~Non-upgradeable~~ (**deprecated**) | BSC Testnet | [`0xc28129Cd9A5ABe9eE14874BF0942150Fa24767A9`](https://testnet.bscscan.com/address/0xc28129Cd9A5ABe9eE14874BF0942150Fa24767A9) |
+`ERC8056TokenUpgradeable` is deployed via the Beacon proxy pattern. **Interact with the BeaconProxy address.**
+
+| Network | BeaconProxy (token) | UpgradeableBeacon |
+|---|---|---|
+| BSC Testnet | [`0x101ba6E119035C3a037BE594F3454032fDbfa65e`](https://testnet.bscscan.com/address/0x101ba6E119035C3a037BE594F3454032fDbfa65e) | [`0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA`](https://testnet.bscscan.com/address/0x2020Ed7E81ba2Df07d4eC7C54DaB46C9b822d4cA) |
 
 ## About
 
@@ -55,11 +55,9 @@ contract MyToken is ERC8056BaseUpgradeable, OwnableUpgradeable {
 }
 ```
 
-> **Deprecated:** [`ERC8056Base`](./contracts/ERC8056Base.sol) / [`ScaledUIToken`](./contracts/ERC8056Token.sol) (non-upgradeable) are kept as historical reference only. Use [`ERC8056TokenUpgradeable`](./contracts/ERC8056TokenUpgradeable.sol) for all new deployments.
+## Architecture
 
-## Upgradeable Variant
-
-[`ERC8056TokenUpgradeable`](./contracts/ERC8056TokenUpgradeable.sol) is the recommended contract for new tokens. It uses the **Beacon proxy pattern**:
+[`ERC8056TokenUpgradeable`](./contracts/ERC8056TokenUpgradeable.sol) is deployed via the **Beacon proxy pattern**:
 
 ```
 UpgradeableBeacon ─── implementation address ───▶ ERC8056TokenUpgradeable (logic)
@@ -67,11 +65,9 @@ UpgradeableBeacon ─── implementation address ───▶ ERC8056TokenUpgr
 BeaconProxy (token address) ─── asks beacon for impl on every call
 ```
 
-Key differences from the deprecated `ERC8056Base`:
-- Deployed as a BeaconProxy; upgrades update the Beacon's implementation pointer
-- All proxies sharing the same Beacon upgrade in one transaction
-- 50-slot storage gap (`__gap`) in `ERC8056BaseUpgradeable` guards future base-contract additions
-- `constructor` calls `_disableInitializers()` to lock the implementation
+- All BeaconProxy instances pointing at the same Beacon upgrade atomically when the Beacon's implementation pointer is updated
+- The implementation contract calls `_disableInitializers()` in its constructor, so it can never be initialized directly — only proxies can call `initialize`
+- A 47-slot storage gap (`uint256[47] __gap`) in [`ERC8056BaseUpgradeable`](./contracts/ERC8056BaseUpgradeable.sol) reserves room for future base-contract state additions without colliding with downstream inheritors
 
 **First deployment** (Beacon + implementation + BeaconProxy):
 
@@ -93,7 +89,7 @@ The upgrade script validates storage layout compatibility before submitting any 
 
 ## Multi-token / Custom Tokens
 
-The playground defaults to the testnet `ERC8056BaseUpgradeable` BeaconProxy address. To load any other EIP-8056 token:
+The playground defaults to the testnet `ERC8056TokenUpgradeable` BeaconProxy address. To load any other EIP-8056 token:
 
 - Append `?token=0x<address>` to the URL, or
 - Enter the address directly in the "Option 2" input on the home page
@@ -117,6 +113,12 @@ bun run dev
 ```
 
 Open [http://localhost:5173/bep-677-contracts/](http://localhost:5173/bep-677-contracts/)
+
+## Audits
+
+| Auditor | Date | Scope | Report |
+|---|---|---|---|
+| Pashov Audit Group | 2026-04-30 | BEP-677 v1 ([`13a604b`](https://github.com/bnb-chain/bep-677-contracts/commit/13a604b)) | [`2026-04-30_Pashov_BEP-677.pdf`](./audits/2026-04-30_Pashov_BEP-677.pdf) |
 
 ## License
 
